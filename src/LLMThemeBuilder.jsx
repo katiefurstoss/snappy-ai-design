@@ -1137,7 +1137,7 @@ function generateJSON(t) {
     lg: baseRad > 30 ? Math.min(Math.round(baseRad*1.2),32) : Math.round(baseRad*1.2),
     full: 9999
   };
-  return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colors:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:spacingScale(sc.base,sc.harmony),typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,scale:typeScale(t.fontSize,sc.harmony)},shape:{baseRadius:t.borderRadius,radiusScale:radScale,elevation:t.elevation,borderWeight:t.borderWeight??1},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),archetype:archetype.definition,traits:archetype.traits},contrast:{textOnBg:+contrastRatio(t.textColor,t.backgroundColor).toFixed(2)}},null,2);
+  return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colors:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:spacingScale(sc.base,sc.harmony),typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,scale:typeScale(t.fontSize,sc.harmony)},shape:{baseRadius:t.borderRadius,radiusScale:radScale,elevation:t.elevation,borderWeight:{setting:t.borderWeight??1,resolvedPx:[0,1,2][t.borderWeight??1],label:["none","thin","bold"][t.borderWeight??1]}},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),archetype:archetype.definition,traits:archetype.traits},contrast:{textOnBg:+contrastRatio(t.textColor,t.backgroundColor).toFixed(2)}},null,2);
 }
 const VOICE_STYLE = {
   Bubbly:    {personality:"Energetic. Enthusiastic. Unapologetically fun.",visualVoice:"Bright, bouncy, saturated — like a confetti cannon in UI form. Every element feels alive.",avoid:"Corporate jargon, muted palettes, stiff layouts, anything that feels like a boardroom",doList:["Use exclamation marks and emoji freely","Keep sentences short and punchy","Lead with excitement, follow with info","Make empty states feel like invitations"],dontList:["Sound corporate or measured","Use passive voice","Write paragraphs when a line will do","Hide personality behind formality"]},
@@ -1355,13 +1355,18 @@ Examples: \`color-text-primary\`, \`color-bg-surface\`, \`type-body-md\`, \`spac
 
 Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted feel)"][elev]}.${elev===0?" Default state = no elevation. Hover states use color change only, never shadow.":""}
 
+#### Border Weight
+**Global border thickness: ${bw}px** (${["none — no visible borders, use shadow/color separation only","thin — subtle 1px borders for refinement","bold — prominent 2px borders for emphasis"][t.borderWeight??1]})
+All component borders (cards, inputs, buttons, dividers) use this weight unless explicitly overridden.
+\`--border-weight: ${bw}px\`
+
 ### 6.2 Primitives
 
 #### Button
 - **Variants:** primary, secondary, ghost, destructive
 - **States:** default, hover, active, focus, disabled
-- Primary: bg=\`color-action-primary\`, text=#fff, radius=radius-sm, border=${bw}px
-- Secondary: bg=transparent, border=\`color-action-primary\` ${bw}px, text=\`color-action-primary\`
+- Primary: bg=\`color-action-primary\`, text=#fff, radius=radius-sm, border=${bw}px solid
+- Secondary: bg=transparent, border=${bw}px solid \`color-action-primary\`, text=\`color-action-primary\`
 - Ghost: bg=transparent, text=\`color-action-primary\`, no border
 - Destructive: bg=\`color-action-destructive\`, text=#fff
 - Hover: translateY(-3px) + glow shadow (if motion enabled)
@@ -1371,7 +1376,7 @@ Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted fe
 
 #### Text Input
 - **States:** default, focused, filled, error, disabled
-- Border: \`color-border-default\` ${bw}px, radius=radius-sm
+- Border: ${bw}px solid \`color-border-default\`, radius=radius-sm
 - Focus: \`color-border-focus\` 2px ring + box-shadow alpha(accent, 0.15)
 - Error: \`color-action-destructive\` border, error message replaces helper text
 - Padding: space-2 vertical, space-4 horizontal
@@ -1381,7 +1386,7 @@ Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted fe
 #### Badge
 - **Variants:** filled, outlined
 - Filled: bg=alpha(color, 0.15), text=color
-- Outlined: border 1px color, bg=transparent, text=color
+- Outlined: border ${bw}px solid color, bg=transparent, text=color
 - Padding: space-1 vertical, space-3 horizontal
 - Radius: radius-full (pill shape)
 - Font: type-label-sm, weight 600
@@ -1834,13 +1839,18 @@ Use the radius scale from the token file:
 Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted feel)"][elev]}.${elev===0?" Default state = no elevation. Hover states use color change only, never shadow.":""}
 Use elevation tokens (elevation-none, elevation-sm, elevation-md) from the token file.
 
+#### Border Weight
+**Global border thickness: ${bw}px** (${["none — no visible borders, use shadow/color separation only","thin — subtle 1px borders for refinement","bold — prominent 2px borders for emphasis"][t.borderWeight??1]})
+All component borders (cards, inputs, buttons, dividers) use this weight unless explicitly overridden.
+Use \`--border-weight\` from the token file.
+
 ### 6.2 Primitives
 
 #### Button
 - **Variants:** primary, secondary, ghost, destructive
 - **States:** default, hover, active, focus, disabled
-- Primary: bg=\`color-action-primary\`, text=#fff, radius=radius-sm, border=${bw}px
-- Secondary: bg=transparent, border=\`color-action-primary\` ${bw}px, text=\`color-action-primary\`
+- Primary: bg=\`color-action-primary\`, text=#fff, radius=radius-sm, border=${bw}px solid
+- Secondary: bg=transparent, border=${bw}px solid \`color-action-primary\`, text=\`color-action-primary\`
 - Ghost: bg=transparent, text=\`color-action-primary\`, no border
 - Destructive: bg=\`color-action-destructive\`, text=#fff
 - Hover: translateY(-3px) + glow shadow (if motion enabled)
@@ -1850,7 +1860,7 @@ Use elevation tokens (elevation-none, elevation-sm, elevation-md) from the token
 
 #### Text Input
 - **States:** default, focused, filled, error, disabled
-- Border: \`color-border-default\` ${bw}px, radius=radius-sm
+- Border: ${bw}px solid \`color-border-default\`, radius=radius-sm
 - Focus: \`color-border-focus\` 2px ring + box-shadow alpha(accent, 0.15)
 - Error: \`color-action-destructive\` border, error message replaces helper text
 - Padding: space-2 vertical, space-4 horizontal
@@ -1860,7 +1870,7 @@ Use elevation tokens (elevation-none, elevation-sm, elevation-md) from the token
 #### Badge
 - **Variants:** filled, outlined
 - Filled: bg=alpha(color, 0.15), text=color
-- Outlined: border 1px color, bg=transparent, text=color
+- Outlined: border ${bw}px solid color, bg=transparent, text=color
 - Padding: space-1 vertical, space-3 horizontal
 - Radius: radius-full (pill shape)
 - Font: type-label-sm, weight 600
