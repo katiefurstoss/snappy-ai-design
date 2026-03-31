@@ -1139,104 +1139,1010 @@ function generateJSON(t) {
   };
   return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colors:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:spacingScale(sc.base,sc.harmony),typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,scale:typeScale(t.fontSize,sc.harmony)},shape:{baseRadius:t.borderRadius,radiusScale:radScale,elevation:t.elevation,borderWeight:t.borderWeight??1},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),archetype:archetype.definition,traits:archetype.traits},contrast:{textOnBg:+contrastRatio(t.textColor,t.backgroundColor).toFixed(2)}},null,2);
 }
-function generatePrompt(t) {
+const VOICE_STYLE = {
+  Bubbly:    {personality:"Energetic. Enthusiastic. Unapologetically fun.",visualVoice:"Bright, bouncy, saturated — like a confetti cannon in UI form. Every element feels alive.",avoid:"Corporate jargon, muted palettes, stiff layouts, anything that feels like a boardroom",doList:["Use exclamation marks and emoji freely","Keep sentences short and punchy","Lead with excitement, follow with info","Make empty states feel like invitations"],dontList:["Sound corporate or measured","Use passive voice","Write paragraphs when a line will do","Hide personality behind formality"]},
+  Whimsical: {personality:"Imaginative. Delightful. Gently surprising.",visualVoice:"Soft, layered, slightly dreamlike — like an illustrated storybook for adults. Details reward exploration.",avoid:"Harsh contrasts, brutalist layouts, aggressive CTAs, anything that feels mechanical",doList:["Use unexpected but fitting word choices","Add gentle humor and warmth","Let whitespace tell part of the story","Make interactions feel like small discoveries"],dontList:["Be random for the sake of random","Use childish language","Overload with decorative elements","Sacrifice clarity for cleverness"]},
+  Quirky:    {personality:"Offbeat. Clever. Charmingly contradictory.",visualVoice:"Structured but surprising — like a well-tailored outfit with one unexpected accessory. Controlled chaos.",avoid:"Anything predictable, overly safe designs, clip-art energy, generic startup templates",doList:["Blend formal structure with playful details","Use dry wit and understated humor","Surprise with micro-interactions","Let the brand voice feel like a person, not a company"],dontList:["Try too hard to be funny","Break conventions without reason","Confuse quirky with sloppy","Sacrifice usability for novelty"]},
+  Warm:      {personality:"Friendly. Genuine. Makes you feel seen.",visualVoice:"Soft, inviting, generous spacing — like a well-lit room with comfortable furniture. Nothing competes for attention.",avoid:"Cold minimalism, aggressive sales language, dark patterns, anything that feels transactional",doList:["Use 'you' and 'your' often","Write like a helpful friend, not a manual","Acknowledge the user's situation with empathy","Make error states feel supportive, not punishing"],dontList:["Sound robotic or template-generated","Use jargon without explanation","Rush the user through flows","Be overly familiar with strangers"]},
+  Balanced:  {personality:"Clear. Confident. Quietly capable.",visualVoice:"Clean, proportional, neutral — like a well-organized workspace. Every element earns its place without drama.",avoid:"Extremes of any kind, trendy gimmicks, overly decorative elements, personality that overshadows content",doList:["Lead with clarity, follow with personality","Keep tone consistent across all touchpoints","Use whitespace intentionally","Let content hierarchy do the heavy lifting"],dontList:["Be bland in pursuit of balance","Add personality as an afterthought","Mix metaphors or tonal registers","Default to generic when specific would help"]},
+  Poised:    {personality:"Polished. Measured. Elegantly confident.",visualVoice:"Refined, purposeful, restrained luxury — like a well-made instrument. Sophistication through subtlety.",avoid:"Gradients, drop shadows, rounded excess, decorative flourishes, anything that feels startup-y",doList:["Choose words with precision","Let quality speak through restraint","Use typography as the primary design element","Make interactions feel effortless and inevitable"],dontList:["Over-explain or pad with filler","Use exclamation marks","Add animation for its own sake","Confuse minimal with empty"]},
+  Chill:     {personality:"Calm. Understated. Effortlessly cool.",visualVoice:"Sparse, low-contrast, plenty of breathing room — like a gallery with perfect lighting. Says more with less.",avoid:"Urgency, aggressive CTAs, bright accent overuse, dense layouts, anything that feels loud",doList:["Keep it brief — if you can cut a word, cut it","Use lowercase where appropriate","Let silence and space communicate","Make interactions feel smooth and unhurried"],dontList:["Try to generate excitement","Use multiple exclamation marks","Fill every pixel with content","Rush users through any flow"]},
+  Grounded:  {personality:"Practical. Direct. No-nonsense.",visualVoice:"Functional, structured, utilitarian — like a well-organized tool wall. Form follows function, every time.",avoid:"Decorative elements without purpose, playful copy, abstract illustrations, anything that prioritizes style over substance",doList:["State facts, not feelings","Use bullet points over paragraphs","Put the action first, explanation second","Make data and status immediately visible"],dontList:["Add personality where clarity is needed","Use metaphors when literal language works","Pad interfaces with decorative whitespace","Soften direct language unnecessarily"]},
+  Corporate: {personality:"Authoritative. Structured. Precision-driven.",visualVoice:"Clean grid, strong hierarchy, systematic — like an annual report designed by someone who actually reads them.",avoid:"Emoji, slang, casual language, playful illustrations, rounded excess, anything that undermines authority",doList:["Lead with data and outcomes","Use structured layouts — tables, cards, clear sections","Reference metrics and impact in copy","Make navigation predictable and systematic"],dontList:["Use first-person plural ('we') casually","Add humor or whimsy","Break grid alignment for visual interest","Sacrifice information density for aesthetics"]},
+};
+function generateFullPrompt(t) {
   const v = vibeFromMatrix(t.vibeX, t.vibeY);
   const zone = getVibeZone(t.vibeX, t.vibeY);
   const arch = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
+  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
   const fl = v.formality < 30 ? "casual" : v.formality < 60 ? "conversational" : "formal";
   const vb = v.verbosity < 30 ? "concise" : v.verbosity < 60 ? "balanced" : "detailed";
   const sc = SCALE_PRESETS[t.scale] || SCALE_PRESETS.default;
   const sp = spacingScale(sc.base, sc.harmony);
   const ts = typeScale(t.fontSize, t.typeHarmony || "major-third");
   const mot = MOTION_PRESETS[t.motionPreset];
-  const elevNames = ["Flat (no shadows)","Subtle (soft depth)","Raised (lifted feel)"];
-  const bwNames = ["None","Thin (1px)","Bold (2px)"];
+  const bodyFF = FONTS.find(f=>f.name===t.bodyFont)?.value||"system-ui";
+  const headFF = FONTS.find(f=>f.name===t.headingFont)?.value||bodyFF;
+  const monoFF = FONTS.find(f=>f.name===t.monoFont)?.value||"monospace";
   const baseRad = t.borderRadius;
-  return `# Design System Theme — Complete Architecture
-⚠️ NOTE: This prompt describes the theme intent. For pixel-perfect accuracy,
-use the JSON or CSS export alongside this prompt. The prompt alone may
-produce approximations — combining Prompt + JSON file gives the best results.
+  const radXs = Math.round(baseRad*0.3);
+  const radSm = Math.round(baseRad*0.5);
+  const radMd = baseRad > 30 ? Math.min(baseRad,28) : baseRad;
+  const radLg = baseRad > 30 ? Math.min(Math.round(baseRad*1.2),32) : Math.round(baseRad*1.2);
+  const bw = [0,1,2][t.borderWeight??1];
+  const elev = t.elevation??1;
+  const elevSh = [
+    "none",
+    elevationShadow(1, t.textColor),
+    elevationShadow(3, t.textColor)
+  ];
+  const cr = (a,b) => { const r = contrastRatio(a,b); const g = wcagGrade(r); return `${r.toFixed(1)}:1 ${g.grade}`; };
+  const isDark = relativeLuminance(t.backgroundColor) < 0.2;
+  const modePolicy = t.colorModePolicy === "both" ? "Light + Dark" : t.colorModePolicy === "dark-only" ? "Dark only" : "Light only";
+  return `# SYSTEM.md — Design System Specification
 
-## 0. Design System Baseline: Material 3 + WCAG 2.1 AA
-Follow Material Design 3 guidelines for all component anatomy and interaction patterns:
-- State layers: hover = +8% primary overlay, pressed = +12%, dragged = +16%
-- Elevation: 5 levels (0dp–12dp) using tonal color + shadow
-- Shapes: rounded rectangles with proportional "shape scale"
-- Typography: display/headline/title/body/label roles with distinct weights
-- Color: primary/secondary/tertiary + on-color + container + on-container roles
-- Motion: emphasized (500ms) for large, standard (300ms) for small transitions
-- Accessibility: WCAG 2.1 AA minimum — 4.5:1 text contrast, 3:1 UI contrast, 44px min tap targets
+> **Read this entire document before generating any UI.**
+> This is the single source of truth for all visual, tonal, and structural decisions.
+> Never use hard-coded values — always reference token names. If a pattern is not
+> described here, default to Material Design 3 and flag the gap.
 
-Apply the design tokens below as overrides to the Material 3 defaults.
+---
 
-## 1. Color Palette
-| Token | Value | Purpose |
-|-------|-------|---------|
-| accent | ${t.accentColor} | Primary brand, CTAs, active states |
-| secondary | ${t.secondaryColor} | Supporting brand, secondary actions |
-| tertiary | ${t.tertiaryColor} | Accent variety, illustrations |
-| surface | ${t.surfaceColor} | Card/panel backgrounds |
-| background | ${t.backgroundColor} | Page background |
-| text | ${t.textColor} | Primary body text |
-| muted | ${t.mutedColor} | Secondary text, placeholders |
-| border | ${t.borderColor} | Dividers, input borders |
-| danger | ${t.dangerColor} | Errors, destructive actions |
-| success | ${t.successColor} | Confirmations, positive states |
-| warning | ${t.warningColor} | Cautions, pending states |
+## 1. Brand Expression
 
-Color mode: ${t.colorModePolicy === "both" ? "Light + Dark" : t.colorModePolicy === "dark-only" ? "Dark only" : "Light only"}.
-WCAG: text-on-background contrast is ${contrastRatio(t.textColor, t.backgroundColor).toFixed(1)}:1.
+**Voice Archetype:** ${zone}
+**Personality:** ${vs.personality}
+**Visual Voice:** ${vs.visualVoice}
+**What to avoid:** ${vs.avoid}
 
-## 2. Typography
-- Body font: "${t.bodyFont}" (${FONTS.find(f=>f.name===t.bodyFont)?.value||"system-ui"})
-- Heading font: "${t.headingFont}" (${FONTS.find(f=>f.name===t.headingFont)?.value||"system-ui"})
-- Mono font: "${t.monoFont||"JetBrains Mono"}"
-- Type scale (${t.typeHarmony}, ratio ${HARMONIES[t.typeHarmony]?.ratio||1.25}):
-  xs: ${ts.xs}px, sm: ${ts.sm}px, base: ${ts.base}px, md: ${ts.md}px,
-  lg: ${ts.lg}px, xl: ${ts.xl}px, 2xl: ${ts["2xl"]}px, display: ${ts.display}px
+---
 
-## 3. Spacing Scale (${t.scale} — ${sc.name})
-3xs: ${sp["3xs"]}px, 2xs: ${sp["2xs"]}px, xs: ${sp.xs}px, sm: ${sp.sm}px,
-md: ${sp.md}px, lg: ${sp.lg}px, xl: ${sp.xl}px, 2xl: ${sp["2xl"]}px
+## 2. Color System
 
-## 4. Shape System
-- Base border-radius: ${baseRad}px
-- PROPORTIONAL SCALING (critical — do not use one flat value):
-  - xs (checkboxes, dots, small icons): ${Math.round(baseRad*0.3)}px
-  - sm (buttons, inputs, badges): ${Math.round(baseRad*0.5)}px
-  - md (cards, panels, alerts): ${baseRad > 30 ? Math.min(baseRad,28) : baseRad}px
-  - lg (modals, hero sections): ${baseRad > 30 ? Math.min(Math.round(baseRad*1.2),32) : Math.round(baseRad*1.2)}px
-  - full (pills, avatars): 9999px
-- Elevation: ${elevNames[t.elevation??1]}
-- Border weight: ${bwNames[t.borderWeight??1]}
+### Primitive Tokens (raw values — never use directly in components)
+| Token | Value |
+|-------|-------|
+| color-primary | ${t.accentColor} |
+| color-secondary | ${t.secondaryColor} |
+| color-tertiary | ${t.tertiaryColor} |
+| color-surface | ${t.surfaceColor} |
+| color-background | ${t.backgroundColor} |
+| color-text | ${t.textColor} |
+| color-muted | ${t.mutedColor} |
+| color-border | ${t.borderColor} |
+| color-danger | ${t.dangerColor} |
+| color-success | ${t.successColor} |
+| color-warning | ${t.warningColor} |
 
-## 5. Motion System: ${t.motionPreset === "none" ? "Disabled" : mot?.name || t.motionPreset}
-${mot?.definition || "No motion."}
+### Semantic Tokens (always use these in components)
+| Semantic Token | Value | Usage |
+|----------------|-------|-------|
+| color-bg-primary | ${t.backgroundColor} | Page background |
+| color-bg-surface | ${t.surfaceColor} | Cards, panels, elevated containers |
+| color-bg-inverse | ${isDark ? lighten(t.backgroundColor,0.85) : darken(t.backgroundColor,0.85)} | Inverse sections, tooltips |
+| color-bg-overlay | ${alpha(isDark?"#000000":"#000000",0.6)} | Modal/dialog backdrops |
+| color-text-primary | ${t.textColor} | Body text, headings |
+| color-text-secondary | ${t.mutedColor} | Captions, placeholders, timestamps |
+| color-text-disabled | ${alpha(t.mutedColor,0.5)} | Disabled labels |
+| color-text-inverse | ${isDark ? darken(t.textColor,0.85) : lighten(t.textColor,0.85)} | Text on inverse backgrounds |
+| color-text-link | ${t.accentColor} | Inline links |
+| color-border-default | ${t.borderColor} | Dividers, input borders |
+| color-border-strong | ${isDark ? lighten(t.borderColor,0.3) : darken(t.borderColor,0.3)} | Emphasized borders |
+| color-border-focus | ${t.accentColor} | Focus rings |
+| color-action-primary | ${t.accentColor} | Primary CTAs, active states |
+| color-action-primary-hover | ${darken(t.accentColor,0.15)} | Primary button hover |
+| color-action-secondary | ${t.secondaryColor} | Secondary actions |
+| color-action-destructive | ${t.dangerColor} | Delete, remove, destructive actions |
+| color-action-success | ${t.successColor} | Confirmations, positive states |
+| color-action-warning | ${t.warningColor} | Cautions, pending states |
+
+### Color Mode: ${modePolicy}
+${t.colorModePolicy === "both" ? `Dark mode overrides:
+| Token | Dark Value |
+|-------|------------|
+| color-bg-primary | ${isDark ? t.backgroundColor : darken(t.backgroundColor,0.85)} |
+| color-bg-surface | ${isDark ? t.surfaceColor : darken(t.surfaceColor,0.8)} |
+| color-text-primary | ${isDark ? t.textColor : lighten(t.textColor,0.85)} |
+| color-border-default | ${isDark ? t.borderColor : lighten(t.borderColor,0.2)} |` : t.colorModePolicy === "dark-only" ? "This is a dark theme. No light mode overrides." : "This is a light theme. No dark mode overrides."}
+
+---
+
+## 3. Typography Scale
+
+### Font Stack
+\`\`\`css
+--font-display: '${t.headingFont}', ${headFF};
+--font-body: '${t.bodyFont}', ${bodyFF};
+--font-mono: '${t.monoFont||"JetBrains Mono"}', ${monoFF};
+\`\`\`
+
+### Type Scale Tokens (${t.typeHarmony}, ratio ${HARMONIES[t.typeHarmony]?.ratio||1.25})
+| Token | Size | Line Height | Weight | Font |
+|-------|------|-------------|--------|------|
+| type-display-2xl | ${ts.display}px | ${Math.round(ts.display*1.1)} | 400 | display |
+| type-display-xl | ${ts["2xl"]}px | ${Math.round(ts["2xl"]*1.15)} | 400 | display |
+| type-heading-xl | ${ts.xl}px | ${Math.round(ts.xl*1.2)} | 600 | display |
+| type-heading-lg | ${ts.lg}px | ${Math.round(ts.lg*1.25)} | 600 | body |
+| type-heading-md | ${ts.md}px | ${Math.round(ts.md*1.3)} | 600 | body |
+| type-body-lg | ${ts.md}px | ${Math.round(ts.md*1.6)} | 400 | body |
+| type-body-md | ${ts.base}px | ${Math.round(ts.base*1.6)} | 400 | body |
+| type-body-sm | ${ts.sm}px | ${Math.round(ts.sm*1.5)} | 400 | body |
+| type-label-lg | ${ts.sm}px | ${Math.round(ts.sm*1.2)} | 600 | body |
+| type-label-sm | ${ts.xs}px | ${Math.round(ts.xs*1.2)} | 600 | body |
+| type-caption | ${ts.xs}px | ${Math.round(ts.xs*1.4)} | 400 | body |
+| type-code | ${ts.sm}px | ${Math.round(ts.sm*1.6)} | 400 | mono |
+
+**Rules:**
+- Never mix display font with bold weight
+- Never use font sizes outside this scale
+- Headings inside components always use type-heading-*
+- UI labels (buttons, tabs, badges) always use type-label-*
+
+---
+
+## 4. Spacing & Grid
+
+### Spacing Scale (${t.scale} — ${sc.name})
+| Token | Value |
+|-------|-------|
+| space-1 | ${sp["3xs"]}px |
+| space-2 | ${sp["2xs"]}px |
+| space-3 | ${sp.xs}px |
+| space-4 | ${sp.sm}px |
+| space-5 | ${sp.md}px |
+| space-6 | ${sp.lg}px |
+| space-8 | ${sp.xl}px |
+| space-10 | ${sp["2xl"]}px |
+
+**Rules:**
+- All padding and margin must use a value from this scale
+- Component internal padding: minimum space-3, standard space-4
+- Section vertical rhythm: minimum space-6
+
+### Grid
+| Property | Compact (<700px) | Regular (>=700px) |
+|----------|-----------------|-------------------|
+| Columns | 4 | 12 |
+| Gutter | ${sp.sm}px | ${sp.md}px |
+| Margin | 24px | ${sp.lg}px |
+| Max width | 100% | 1200px |
+
+---
+
+## 5. Naming Conventions
+
+### Token Naming
+Pattern: \`[category]-[property]-[variant]-[state]\`
+Examples: \`color-text-primary\`, \`color-bg-surface\`, \`type-body-md\`, \`space-4\`, \`radius-sm\`
+
+### Component Naming (BEM)
+\`\`\`css
+.card { }
+.card__header { }
+.card__header--featured { }
+.button--primary { }
+.button--ghost { }
+.input--error { }
+\`\`\`
+
+### File Naming
+\`ComponentName.tsx\`, \`ComponentName.stories.tsx\`, \`ComponentName.test.tsx\`, \`component-name.module.css\`
+
+---
+
+## 6. Component Library
+
+### 6.1 Shape Tokens
+
+#### Border Radius
+| Token | Value | Usage |
+|-------|-------|-------|
+| radius-none | 0px | Sharp elements |
+| radius-xs | ${radXs}px | Checkboxes, small icons, avatar squares |
+| radius-sm | ${radSm}px | Buttons, inputs, badges, nav items |
+| radius-md | ${radMd}px | Cards, panels, alerts, pricing tiers |
+| radius-lg | ${radLg}px | Modals, hero sections, testimonials |
+| radius-full | 9999px | Pills, avatars (circular), search inputs, tags |
+
+**Rule:** Never mix radius values within one component.
+
+#### Elevation
+| Token | Value | Usage |
+|-------|-------|-------|
+| elevation-none | none | Default state, flat surfaces |
+| elevation-sm | ${elevSh[1]} | Hover state, subtle lift |
+| elevation-md | ${elevSh[2]} | Cards, raised surfaces, dropdowns |
+
+Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted feel)"][elev]}.${elev===0?" Default state = no elevation. Hover states use color change only, never shadow.":""}
+
+### 6.2 Primitives
+
+#### Button
+- **Variants:** primary, secondary, ghost, destructive
+- **States:** default, hover, active, focus, disabled
+- Primary: bg=\`color-action-primary\`, text=#fff, radius=radius-sm, border=${bw}px
+- Secondary: bg=transparent, border=\`color-action-primary\` ${bw}px, text=\`color-action-primary\`
+- Ghost: bg=transparent, text=\`color-action-primary\`, no border
+- Destructive: bg=\`color-action-destructive\`, text=#fff
+- Hover: translateY(-3px) + glow shadow (if motion enabled)
+- Press: scale(0.92) squish
+- Disabled: opacity 0.5, cursor not-allowed
+- Min height: 44px, label uses type-label-lg
+
+#### Text Input
+- **States:** default, focused, filled, error, disabled
+- Border: \`color-border-default\` ${bw}px, radius=radius-sm
+- Focus: \`color-border-focus\` 2px ring + box-shadow alpha(accent, 0.15)
+- Error: \`color-action-destructive\` border, error message replaces helper text
+- Padding: space-2 vertical, space-4 horizontal
+- Font: type-body-md, font-body
+- Always include visible label above + optional helper text below
+
+#### Badge
+- **Variants:** filled, outlined
+- Filled: bg=alpha(color, 0.15), text=color
+- Outlined: border 1px color, bg=transparent, text=color
+- Padding: space-1 vertical, space-3 horizontal
+- Radius: radius-full (pill shape)
+- Font: type-label-sm, weight 600
+- Used for: status indicators, counts, tags, category labels
+
+#### Alert
+- **Variants:** info (accent), success, warning, error (danger)
+- Background: alpha(color, 0.08), border-left 3px solid color
+- Radius: radius-md
+- Contains: title (type-label-lg, weight 700) + message (type-body-sm)
+- Optional dismiss button (X icon, top-right)
+- Padding: space-4
+
+#### Toggle Switch
+- Size: 48×28px track, 22px dot
+- Off: bg=\`color-border-default\`, dot left
+- On: bg=\`color-action-primary\`, dot right (translateX)
+- Transition: duration-small
+- Include aria-checked and role="switch"
+
+#### Avatar
+- Shape: radius-xs (square-ish) or radius-full (circular)
+- Sizes: 20px (icon), 28px (inline), 32px (card), 40px (profile)
+- Fallback: first letter of name, bg=\`color-action-primary\`, text=#fff
+- Stack: overlapping with -8px margin, border 2px \`color-bg-primary\`, max 4 visible + "+N" counter
+
+#### Progress Bar
+- Height: 6px
+- Track: bg=alpha(\`color-muted\`, 0.15), radius=radius-full
+- Fill: bg=color (accent/secondary/tertiary), radius=radius-full
+- Animated width transition: duration-medium ease-default
+
+#### Skeleton Loader
+- Background: alpha(\`color-muted\`, 0.15)
+- Animation: pulse opacity 1→0.4→1 over 1.5s
+- Radius: radius-sm (text lines), radius-full (avatars)
+- Match the exact dimensions of the content they replace
+
+#### Icon (Material Symbols)
+- Provider: Google Material Symbols
+- Style: ${t.iconStyle||"outlined"}, Weight: ${t.iconWeight||400}
+- Sizes: 12px (inline), 14px (button), 18px (card), 20px (nav), 28px (feature)
+- Icon-only buttons must include aria-label
+- Color inherits from parent text unless explicitly set
+
+### 6.3 Composites
+
+#### Navigation Bar
+- Position: sticky, top: 0, z-index: 10
+- Background: \`color-bg-surface\` with backdrop-filter blur(12px), semi-transparent
+- Border-bottom: ${bw}px \`color-border-default\`
+- Layout: flex, space-between, center aligned
+- Contains: logo (icon + brand name), nav links, primary CTA
+- Active link: color=\`color-action-primary\`, border-bottom 2px accent
+- Compact (<700px): collapse to hamburger menu + mobile dropdown
+- Min height: 40px, padding: space-2 vertical
+
+#### Card (Content)
+- bg=\`color-bg-surface\`, radius=radius-md, border=${bw}px \`color-border-default\`${elev>0?`, shadow=elevation-sm`:""}
+- Header, body, footer are all optional slots
+- Padding: space-4 minimum, space-5 standard
+- Hover: translateY(-6px) + shadow increase (hoverLift)
+- Selected variant: border \`color-action-primary\`, shadow accent glow
+- Tinted variant: bg=alpha(\`color-action-primary\`, 0.06)
+- Never nest cards more than one level deep
+
+#### Stat Card
+- Extends Card with: metric label (type-caption, muted), value (type-heading-xl, colored), change indicator (type-caption, success/danger)
+- Icon: top-right, 16px, colored per metric
+- Selectable: onClick toggles accent border + accent shadow
+- Grid: auto-fit minmax(130px, 1fr)
+
+#### Pricing Card
+- Extends Card with: tier name, price (type-heading-xl), description, feature list (check icon + text), CTA button
+- Popular tier: accent border + positioned "Popular" pill badge (top, centered, negative offset)
+- Selected: accent border + expanded animation
+- Feature list: Check icon (\`color-action-success\`) + type-body-sm
+- CTA: primary for popular/selected, outlined for others
+
+#### Data Table
+- Container: Card shell
+- Header row: type-label-sm, uppercase, letter-spacing 0.5, \`color-text-secondary\`, border-bottom 2px
+- Body rows: type-body-sm, border-bottom ${bw}px
+- Row hover: translateX(3px) + subtle accent background
+- Row selected: bg=alpha(\`color-action-primary\`, 0.08)
+- Status column: use Badge component for status values
+- Numeric columns: text-align right
+
+#### Tab Bar
+- Layout: flex, gap space-3, border-bottom ${bw}px \`color-border-default\`
+- Active tab: \`color-action-primary\`, border-bottom 2px accent, weight 700
+- Inactive tab: \`color-text-secondary\`, weight 500
+- Interaction: hover changes color, click switches tab
+- Font: type-label-lg
+
+#### Breadcrumbs
+- Layout: inline-flex, gap space-2
+- Separator: ChevronRight icon, 12px, \`color-text-secondary\`
+- Current item: \`color-text-primary\`, weight 600
+- Previous items: \`color-text-secondary\`, clickable, hover underline
+- Font: type-body-sm
+
+#### FAQ Accordion
+- Container: flex column, gap space-2
+- Item: Card shell, overflow hidden
+- Header: flex, space-between, padding space-4, type-label-lg, weight 600, clickable
+- Chevron: rotates 180deg on open, transition duration-small
+- Body: padding space-4, border-top, type-body-sm, \`color-text-secondary\`
+- Only one item open at a time
+
+#### Testimonial
+- Card shell with radius-lg, padding space-6, text-align center
+- Decorative opening quote: 48px, serif font, alpha(\`color-action-primary\`, 0.15), absolute positioned
+- Quote text: type-body-lg, italic, max-width 480px, centered
+- Author: type-body-sm, \`color-text-secondary\`, weight 500
+
+#### Newsletter Signup
+- Background: alpha(\`color-action-primary\`, 0.06), border, radius-lg
+- Layout: centered, icon + heading + input row
+- Input + button row: flex (column on compact, row on regular)
+- Input: type-body-sm, radius-sm, border
+- Button: primary variant
+
+### 6.4 Templates
+
+#### Landing Page
+Sections in order:
+1. Navigation Bar (sticky, blur backdrop)
+2. Hero: pill badge + split-color headline (heading-font) + subtitle + dual CTAs + avatar stack social proof
+3. Logo Bar: centered, uppercase label, brand names at 0.4 opacity
+4. How It Works: 3-step numbered cards in grid
+5. Features Grid: 3-column auto-fit, icon + title + description cards
+6. Stats Strip: centered metrics, accent-colored values, border top/bottom
+7. Testimonial: centered quote card
+8. Pricing: tiered cards with popular badge, selectable
+9. Newsletter: accent-tinted signup with input + button
+10. FAQ: accordion with chevron toggle
+11. Footer: multi-column link grid + bottom bar
+
+#### Dashboard
+Sections in order:
+1. Top Bar with hamburger menu + logo (sidebar is overlay, not inline)
+2. Breadcrumbs
+3. Page Header with title + subtitle + period toggle (Day/Week/Month)
+4. Stat Cards: 3-column grid with colored metrics
+5. Progress Bars: 3-column grid with labeled percentages
+6. Tab Bar (Overview/Activity/Goals)
+7. Chart: bar graph card with daily data
+8. Data Table: sortable rows with status badges
+9. Activity Feed: timeline dots + text + timestamps
+10. Skeleton Loader: avatar + text line placeholders
+
+#### Marketplace
+Sections in order:
+1. Navigation with search input (pill shape) + cart icon with count badge
+2. Breadcrumbs
+3. Page Header
+4. Category Filters (horizontal pill buttons) + Sort dropdown
+5. Product Grid: auto-fill cards with image area, favorite toggle, name, price, rating, add-to-cart
+6. Pagination: numbered buttons
+7. Product Detail: image + info panel with rating, description, price, action buttons
+8. Reviews: star ratings + review cards with avatars
+9. Cart Summary: item count + total + checkout CTA (or empty state with icon + message)
+
+---
+
+## 7. Motion System: ${t.motionPreset === "none" ? "Disabled" : mot?.name || t.motionPreset}
+
+${mot?.definition || "Motion is disabled. All state changes are instant. Use color and opacity for feedback."}
 ${t.motionPreset !== "none" ? `
-Durations: micro ${mot.durations.micro}ms, small ${mot.durations.small}ms, medium ${mot.durations.medium}ms, large ${mot.durations.large}ms.
-Easings:
-  default: ${mot.easing.default}
-  enter: ${mot.easing.enter}
-  exit: ${mot.easing.exit}
+### Duration Tokens
+| Token | Value | Usage |
+|-------|-------|-------|
+| duration-micro | ${mot.durations.micro}ms | Hover feedback, toggles |
+| duration-small | ${mot.durations.small}ms | Button press, small reveals |
+| duration-medium | ${mot.durations.medium}ms | Panel slides, card transitions |
+| duration-large | ${mot.durations.large}ms | Page transitions, hero animations |
 
-Interaction tokens:
-  - Hover lift (cards): translateY(-6px) + shadow increase
-  - Button hover: translateY(-3px) + glow shadow
-  - Press/click: scale(0.92) squish
-  - Row hover: translateX(3px) + subtle accent bg
-  - Enter animation: translateY(14px) opacity 0 → 0` : ""}
+### Easing Tokens
+| Token | Value |
+|-------|-------|
+| ease-default | ${mot.easing.default} |
+| ease-enter | ${mot.easing.enter} |
+| ease-exit | ${mot.easing.exit} |
 
-## 6. Icons
-Google Material Symbols — style: ${t.iconStyle||"outlined"}, weight: ${t.iconWeight||400}.
-Import: <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
-Usage: <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' ${(t.iconStyle||"outlined")==="filled"?1:0}, 'wght' ${t.iconWeight||400}">icon_name</span>
+### Interaction Patterns
+- **Hover lift** (cards): translateY(-6px) + shadow increase
+- **Button hover**: translateY(-3px) + glow shadow${elev===0?" (color change only when flat)":""}
+- **Press/click**: scale(0.92) squish
+- **Row hover**: translateX(3px) + subtle accent background
+- **Enter animation**: translateY(14px) + opacity 0 → 1
 
-## 7. Voice & Tone: ${zone}
-${arch.definition}
+**Rule:** Always respect \`prefers-reduced-motion: reduce\`. When active, disable all transforms and use instant state changes.` : ""}
 
-Traits: formality=${arch.traits.formality}, warmth=${arch.traits.warmth}, energy=${arch.traits.energy}, humor=${arch.traits.humor}, verbosity=${arch.traits.verbosity}, emoji=${arch.traits.emoji}.
+---
 
-Writing style: ${v.warmth>50?"Warm":"Cool"}, ${fl}, ${vb}. ${v.humor>50?"Playful":"Straightforward"} tone. ${v.energy>50?"Dynamic":"Calm"} energy. ${v.emojiDensity>30?"Uses emoji.":"No emoji."}`;
+## 8. Icons
+
+**Provider:** Google Material Symbols
+**Style:** ${t.iconStyle||"outlined"}, **Weight:** ${t.iconWeight||400}
+
+\`\`\`html
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+\`\`\`
+\`\`\`html
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' ${(t.iconStyle||"outlined")==="filled"?1:0}, 'wght' ${t.iconWeight||400}">icon_name</span>
+\`\`\`
+
+Icon-only buttons must always include \`aria-label\`.
+
+---
+
+## 9. Responsive Design
+
+### Breakpoints
+| Token | Value | Usage |
+|-------|-------|-------|
+| bp-compact | <700px | Phone, small tablet |
+| bp-regular | >=700px | Tablet, desktop |
+
+### Rules
+- Mobile first: write base styles for compact, layer up with min-width
+- Touch targets minimum 44×44px on compact
+- Navigation collapses to hamburger at bp-compact
+- Typography steps down one level on compact (e.g. type-heading-xl → type-heading-lg)
+- Never use hover-only interactions as the sole affordance — always pair with tap/click
+
+---
+
+## 10. Accessibility
+
+### Minimum Requirements
+- All color combinations must meet WCAG 2.1 AA (4.5:1 for text, 3:1 for UI elements)
+- All interactive elements must be keyboard navigable
+- Focus indicators must be visible — never \`outline: none\` without a replacement
+- All images must have \`alt\` text (empty \`alt=""\` for decorative images)
+- All icons used without text must have \`aria-label\`
+- All form inputs must have an associated \`<label>\`
+
+### Contrast Audit (current theme)
+| Pair | Ratio | Grade |
+|------|-------|-------|
+| Text on Background | ${cr(t.textColor,t.backgroundColor)} |
+| Muted on Background | ${cr(t.mutedColor,t.backgroundColor)} |
+| Accent on Background | ${cr(t.accentColor,t.backgroundColor)} |
+| Accent on Surface | ${cr(t.accentColor,t.surfaceColor)} |
+| Text on Surface | ${cr(t.textColor,t.surfaceColor)} |
+| Danger on Background | ${cr(t.dangerColor,t.backgroundColor)} |
+| Success on Background | ${cr(t.successColor,t.backgroundColor)} |
+
+### ARIA Patterns
+- Modals: \`role="dialog"\`, \`aria-modal="true"\`, focus trap required
+- Tooltips: \`role="tooltip"\`, triggered via \`aria-describedby\`
+- Alerts: \`role="alert"\` for dynamic error messages
+- Loading: \`aria-busy="true"\` on the loading container
+
+---
+
+## 11. Microcopy & Tone
+
+**Voice:** ${arch.definition}
+**Reading level:** ${v.formality < 30 ? "Grade 6 — clear enough for anyone" : v.formality < 60 ? "Grade 8 — professional but accessible" : "Grade 10+ — polished and precise"}
+
+### Do
+${vs.doList.map(d=>`- ${d}`).join("\n")}
+
+### Don't
+${vs.dontList.map(d=>`- ${d}`).join("\n")}
+
+### Microcopy Patterns
+| Context | ${zone} Style |
+|---------|------|
+| Save | ${v.formality<30?"Save it!":v.formality<60?"Save changes":"Save changes"} |
+| Error | ${v.warmth>50?"Oops, something went wrong — let's try again":"Something went wrong. Please try again."} |
+| Empty state | ${v.energy>50?"Nothing here yet — let's fix that!":v.formality>60?"No items found. Create one to begin.":"Nothing here yet. Add one to get started."} |
+| Loading | ${v.verbosity<30?"Loading...":v.warmth>50?"Hang tight, loading your stuff...":"Loading, please wait..."} |
+| Delete confirm | ${v.formality>60?"This action cannot be undone. Proceed?":"Delete this? You can't undo it."} |
+
+---
+
+## 12. AI-Specific Instructions
+
+When generating UI for this project:
+1. **Read this whole document first.** Don't generate until you understand the system.
+2. **Never hard-code values.** Every color, size, and spacing must reference a token from this spec.
+3. **Ask before inventing.** If a pattern isn't defined here, say so before creating something new.
+4. **Flag gaps.** If the spec is missing something you needed, note it at the end of your output.
+5. **Output token-aware code.** Use CSS custom properties matching the token names above.
+6. **Think in components, not pages.** Build composable pieces, not one-off layouts.
+7. **Always include all states.** Never ship a component without hover, focus, disabled, and error states.
+8. **Match the ${zone} voice.** ${vs.personality} Apply this tone to ALL user-facing copy.
+9. **Test against the contrast audit.** If a color pair shows "Fail" or "AA18" above, fix it.
+10. **Include \`prefers-reduced-motion\` and \`prefers-color-scheme\` media queries** in every component with motion or themed styles.
+
+This document is the source of truth. When the system evolves, update this file first.`;
+}
+
+function generateRulesPrompt(t) {
+  const v = vibeFromMatrix(t.vibeX, t.vibeY);
+  const zone = getVibeZone(t.vibeX, t.vibeY);
+  const arch = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
+  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
+  const fl = v.formality < 30 ? "casual" : v.formality < 60 ? "conversational" : "formal";
+  const vb = v.verbosity < 30 ? "concise" : v.verbosity < 60 ? "balanced" : "detailed";
+  const mot = MOTION_PRESETS[t.motionPreset];
+  const bw = [0,1,2][t.borderWeight??1];
+  const elev = t.elevation??1;
+  const modePolicy = t.colorModePolicy === "both" ? "Light + Dark" : t.colorModePolicy === "dark-only" ? "Dark only" : "Light only";
+  return `# SYSTEM.md — Design System Rules
+
+> **Read this entire document before generating any UI.**
+> This is the single source of truth for all visual, tonal, and structural decisions.
+> Resolve all token references from the accompanying JSON or CSS file.
+> Never hard-code values — always reference token names. If a pattern is not
+> described here, default to Material Design 3 and flag the gap.
+
+---
+
+## 1. Brand Expression
+
+**Voice Archetype:** ${zone}
+**Personality:** ${vs.personality}
+**Visual Voice:** ${vs.visualVoice}
+**What to avoid:** ${vs.avoid}
+
+---
+
+## 2. Color System
+
+### Token Architecture
+Use **semantic tokens** in all components. Never reference primitive values directly.
+
+| Semantic Token | Role |
+|----------------|------|
+| color-bg-primary | Page background |
+| color-bg-surface | Cards, panels, elevated containers |
+| color-bg-inverse | Inverse sections, tooltips |
+| color-bg-overlay | Modal/dialog backdrops |
+| color-text-primary | Body text, headings |
+| color-text-secondary | Captions, placeholders, timestamps |
+| color-text-disabled | Disabled labels |
+| color-text-inverse | Text on inverse backgrounds |
+| color-text-link | Inline links |
+| color-border-default | Dividers, input borders |
+| color-border-strong | Emphasized borders |
+| color-border-focus | Focus rings |
+| color-action-primary | Primary CTAs, active states |
+| color-action-primary-hover | Primary button hover |
+| color-action-secondary | Secondary actions |
+| color-action-destructive | Delete, remove, destructive actions |
+| color-action-success | Confirmations, positive states |
+| color-action-warning | Cautions, pending states |
+
+### Color Mode: ${modePolicy}
+${t.colorModePolicy === "both" ? "Support both light and dark modes. Override semantic tokens per mode using the values in the token file." : t.colorModePolicy === "dark-only" ? "This is a dark theme. No light mode overrides." : "This is a light theme. No dark mode overrides."}
+
+---
+
+## 3. Typography Scale
+
+### Font Stack
+Reference these font tokens from the token file:
+- \`--font-display\` — for headings and hero text
+- \`--font-body\` — for body copy
+- \`--font-mono\` — for code blocks
+
+### Type Scale Tokens
+| Token | Role | Weight | Font |
+|-------|------|--------|------|
+| type-display-2xl | Hero headlines | 400 | display |
+| type-display-xl | Section headlines | 400 | display |
+| type-heading-xl | Page headings | 600 | display |
+| type-heading-lg | Card headings | 600 | body |
+| type-heading-md | Sub-headings | 600 | body |
+| type-body-lg | Lead paragraphs | 400 | body |
+| type-body-md | Body text | 400 | body |
+| type-body-sm | Small body text | 400 | body |
+| type-label-lg | Buttons, tabs, badges | 600 | body |
+| type-label-sm | Small labels, captions | 600 | body |
+| type-caption | Timestamps, metadata | 400 | body |
+| type-code | Code blocks | 400 | mono |
+
+**Rules:**
+- Never mix display font with bold weight
+- Never use font sizes outside this scale
+- Headings inside components always use type-heading-*
+- UI labels (buttons, tabs, badges) always use type-label-*
+
+---
+
+## 4. Spacing & Grid
+
+### Spacing Tokens
+Use the spacing scale from the token file. All padding and margin must use a token value:
+- space-1 through space-10
+
+**Rules:**
+- Component internal padding: minimum space-3, standard space-4
+- Section vertical rhythm: minimum space-6
+
+### Grid
+| Property | Compact (<700px) | Regular (>=700px) |
+|----------|-----------------|-------------------|
+| Columns | 4 | 12 |
+| Gutter | space-4 | space-5 |
+| Margin | 24px | space-6 |
+| Max width | 100% | 1200px |
+
+---
+
+## 5. Naming Conventions
+
+### Token Naming
+Pattern: \`[category]-[property]-[variant]-[state]\`
+Examples: \`color-text-primary\`, \`color-bg-surface\`, \`type-body-md\`, \`space-4\`, \`radius-sm\`
+
+### Component Naming (BEM)
+\`\`\`css
+.card { }
+.card__header { }
+.card__header--featured { }
+.button--primary { }
+.button--ghost { }
+.input--error { }
+\`\`\`
+
+### File Naming
+\`ComponentName.tsx\`, \`ComponentName.stories.tsx\`, \`ComponentName.test.tsx\`, \`component-name.module.css\`
+
+---
+
+## 6. Component Library
+
+### 6.1 Shape Tokens
+
+#### Border Radius
+Use the radius scale from the token file:
+| Token | Usage |
+|-------|-------|
+| radius-none | Sharp elements |
+| radius-xs | Checkboxes, small icons, avatar squares |
+| radius-sm | Buttons, inputs, badges, nav items |
+| radius-md | Cards, panels, alerts, pricing tiers |
+| radius-lg | Modals, hero sections, testimonials |
+| radius-full | Pills, avatars (circular), search inputs, tags |
+
+**Rule:** Never mix radius values within one component.
+
+#### Elevation
+Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted feel)"][elev]}.${elev===0?" Default state = no elevation. Hover states use color change only, never shadow.":""}
+Use elevation tokens (elevation-none, elevation-sm, elevation-md) from the token file.
+
+### 6.2 Primitives
+
+#### Button
+- **Variants:** primary, secondary, ghost, destructive
+- **States:** default, hover, active, focus, disabled
+- Primary: bg=\`color-action-primary\`, text=#fff, radius=radius-sm, border=${bw}px
+- Secondary: bg=transparent, border=\`color-action-primary\` ${bw}px, text=\`color-action-primary\`
+- Ghost: bg=transparent, text=\`color-action-primary\`, no border
+- Destructive: bg=\`color-action-destructive\`, text=#fff
+- Hover: translateY(-3px) + glow shadow (if motion enabled)
+- Press: scale(0.92) squish
+- Disabled: opacity 0.5, cursor not-allowed
+- Min height: 44px, label uses type-label-lg
+
+#### Text Input
+- **States:** default, focused, filled, error, disabled
+- Border: \`color-border-default\` ${bw}px, radius=radius-sm
+- Focus: \`color-border-focus\` 2px ring + box-shadow alpha(accent, 0.15)
+- Error: \`color-action-destructive\` border, error message replaces helper text
+- Padding: space-2 vertical, space-4 horizontal
+- Font: type-body-md, font-body
+- Always include visible label above + optional helper text below
+
+#### Badge
+- **Variants:** filled, outlined
+- Filled: bg=alpha(color, 0.15), text=color
+- Outlined: border 1px color, bg=transparent, text=color
+- Padding: space-1 vertical, space-3 horizontal
+- Radius: radius-full (pill shape)
+- Font: type-label-sm, weight 600
+- Used for: status indicators, counts, tags, category labels
+
+#### Alert
+- **Variants:** info (accent), success, warning, error (danger)
+- Background: alpha(color, 0.08), border-left 3px solid color
+- Radius: radius-md
+- Contains: title (type-label-lg, weight 700) + message (type-body-sm)
+- Optional dismiss button (X icon, top-right)
+- Padding: space-4
+
+#### Toggle Switch
+- Size: 48×28px track, 22px dot
+- Off: bg=\`color-border-default\`, dot left
+- On: bg=\`color-action-primary\`, dot right (translateX)
+- Transition: duration-small
+- Include aria-checked and role="switch"
+
+#### Avatar
+- Shape: radius-xs (square-ish) or radius-full (circular)
+- Sizes: 20px (icon), 28px (inline), 32px (card), 40px (profile)
+- Fallback: first letter of name, bg=\`color-action-primary\`, text=#fff
+- Stack: overlapping with -8px margin, border 2px \`color-bg-primary\`, max 4 visible + "+N" counter
+
+#### Progress Bar
+- Height: 6px
+- Track: bg=alpha(\`color-muted\`, 0.15), radius=radius-full
+- Fill: bg=color (accent/secondary/tertiary), radius=radius-full
+- Animated width transition: duration-medium ease-default
+
+#### Skeleton Loader
+- Background: alpha(\`color-muted\`, 0.15)
+- Animation: pulse opacity 1→0.4→1 over 1.5s
+- Radius: radius-sm (text lines), radius-full (avatars)
+- Match the exact dimensions of the content they replace
+
+#### Icon (Material Symbols)
+- Provider: Google Material Symbols
+- Style: ${t.iconStyle||"outlined"}, Weight: ${t.iconWeight||400}
+- Sizes: 12px (inline), 14px (button), 18px (card), 20px (nav), 28px (feature)
+- Icon-only buttons must include aria-label
+- Color inherits from parent text unless explicitly set
+
+### 6.3 Composites
+
+#### Navigation Bar
+- Position: sticky, top: 0, z-index: 10
+- Background: \`color-bg-surface\` with backdrop-filter blur(12px), semi-transparent
+- Border-bottom: ${bw}px \`color-border-default\`
+- Layout: flex, space-between, center aligned
+- Contains: logo (icon + brand name), nav links, primary CTA
+- Active link: color=\`color-action-primary\`, border-bottom 2px accent
+- Compact (<700px): collapse to hamburger menu + mobile dropdown
+- Min height: 40px, padding: space-2 vertical
+
+#### Card (Content)
+- bg=\`color-bg-surface\`, radius=radius-md, border=${bw}px \`color-border-default\`${elev>0?`, shadow=elevation-sm`:""}
+- Header, body, footer are all optional slots
+- Padding: space-4 minimum, space-5 standard
+- Hover: translateY(-6px) + shadow increase (hoverLift)
+- Selected variant: border \`color-action-primary\`, shadow accent glow
+- Tinted variant: bg=alpha(\`color-action-primary\`, 0.06)
+- Never nest cards more than one level deep
+
+#### Stat Card
+- Extends Card with: metric label (type-caption, muted), value (type-heading-xl, colored), change indicator (type-caption, success/danger)
+- Icon: top-right, 16px, colored per metric
+- Selectable: onClick toggles accent border + accent shadow
+- Grid: auto-fit minmax(130px, 1fr)
+
+#### Pricing Card
+- Extends Card with: tier name, price (type-heading-xl), description, feature list (check icon + text), CTA button
+- Popular tier: accent border + positioned "Popular" pill badge (top, centered, negative offset)
+- Selected: accent border + expanded animation
+- Feature list: Check icon (\`color-action-success\`) + type-body-sm
+- CTA: primary for popular/selected, outlined for others
+
+#### Data Table
+- Container: Card shell
+- Header row: type-label-sm, uppercase, letter-spacing 0.5, \`color-text-secondary\`, border-bottom 2px
+- Body rows: type-body-sm, border-bottom ${bw}px
+- Row hover: translateX(3px) + subtle accent background
+- Row selected: bg=alpha(\`color-action-primary\`, 0.08)
+- Status column: use Badge component for status values
+- Numeric columns: text-align right
+
+#### Tab Bar
+- Layout: flex, gap space-3, border-bottom ${bw}px \`color-border-default\`
+- Active tab: \`color-action-primary\`, border-bottom 2px accent, weight 700
+- Inactive tab: \`color-text-secondary\`, weight 500
+- Interaction: hover changes color, click switches tab
+- Font: type-label-lg
+
+#### Breadcrumbs
+- Layout: inline-flex, gap space-2
+- Separator: ChevronRight icon, 12px, \`color-text-secondary\`
+- Current item: \`color-text-primary\`, weight 600
+- Previous items: \`color-text-secondary\`, clickable, hover underline
+- Font: type-body-sm
+
+#### FAQ Accordion
+- Container: flex column, gap space-2
+- Item: Card shell, overflow hidden
+- Header: flex, space-between, padding space-4, type-label-lg, weight 600, clickable
+- Chevron: rotates 180deg on open, transition duration-small
+- Body: padding space-4, border-top, type-body-sm, \`color-text-secondary\`
+- Only one item open at a time
+
+#### Testimonial
+- Card shell with radius-lg, padding space-6, text-align center
+- Decorative opening quote: 48px, serif font, alpha(\`color-action-primary\`, 0.15), absolute positioned
+- Quote text: type-body-lg, italic, max-width 480px, centered
+- Author: type-body-sm, \`color-text-secondary\`, weight 500
+
+#### Newsletter Signup
+- Background: alpha(\`color-action-primary\`, 0.06), border, radius-lg
+- Layout: centered, icon + heading + input row
+- Input + button row: flex (column on compact, row on regular)
+- Input: type-body-sm, radius-sm, border
+- Button: primary variant
+
+### 6.4 Templates
+
+#### Landing Page
+Sections in order:
+1. Navigation Bar (sticky, blur backdrop)
+2. Hero: pill badge + split-color headline (display font) + subtitle + dual CTAs + avatar stack social proof
+3. Logo Bar: centered, uppercase label, brand names at 0.4 opacity
+4. How It Works: 3-step numbered cards in grid
+5. Features Grid: 3-column auto-fit, icon + title + description cards
+6. Stats Strip: centered metrics, accent-colored values, border top/bottom
+7. Testimonial: centered quote card
+8. Pricing: tiered cards with popular badge, selectable
+9. Newsletter: accent-tinted signup with input + button
+10. FAQ: accordion with chevron toggle
+11. Footer: multi-column link grid + bottom bar
+
+#### Dashboard
+Sections in order:
+1. Top Bar with hamburger menu + logo (sidebar is overlay, not inline)
+2. Breadcrumbs
+3. Page Header with title + subtitle + period toggle (Day/Week/Month)
+4. Stat Cards: 3-column grid with colored metrics
+5. Progress Bars: 3-column grid with labeled percentages
+6. Tab Bar (Overview/Activity/Goals)
+7. Chart: bar graph card with daily data
+8. Data Table: sortable rows with status badges
+9. Activity Feed: timeline dots + text + timestamps
+10. Skeleton Loader: avatar + text line placeholders
+
+#### Marketplace
+Sections in order:
+1. Navigation with search input (pill shape) + cart icon with count badge
+2. Breadcrumbs
+3. Page Header
+4. Category Filters (horizontal pill buttons) + Sort dropdown
+5. Product Grid: auto-fill cards with image area, favorite toggle, name, price, rating, add-to-cart
+6. Pagination: numbered buttons
+7. Product Detail: image + info panel with rating, description, price, action buttons
+8. Reviews: star ratings + review cards with avatars
+9. Cart Summary: item count + total + checkout CTA (or empty state with icon + message)
+
+---
+
+## 7. Motion System: ${t.motionPreset === "none" ? "Disabled" : mot?.name || t.motionPreset}
+
+${mot?.definition || "Motion is disabled. All state changes are instant. Use color and opacity for feedback."}
+${t.motionPreset !== "none" ? `
+### Duration Tokens
+Use duration tokens from the token file:
+- duration-micro — Hover feedback, toggles
+- duration-small — Button press, small reveals
+- duration-medium — Panel slides, card transitions
+- duration-large — Page transitions, hero animations
+
+### Easing Tokens
+Use easing tokens from the token file:
+- ease-default — General transitions
+- ease-enter — Elements appearing
+- ease-exit — Elements disappearing
+
+### Interaction Patterns
+- **Hover lift** (cards): translateY(-6px) + shadow increase
+- **Button hover**: translateY(-3px) + glow shadow${elev===0?" (color change only when flat)":""}
+- **Press/click**: scale(0.92) squish
+- **Row hover**: translateX(3px) + subtle accent background
+- **Enter animation**: translateY(14px) + opacity 0 → 1
+
+**Rule:** Always respect \`prefers-reduced-motion: reduce\`. When active, disable all transforms and use instant state changes.` : ""}
+
+---
+
+## 8. Icons
+
+**Provider:** Google Material Symbols
+**Style:** ${t.iconStyle||"outlined"}, **Weight:** ${t.iconWeight||400}
+
+\`\`\`html
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+\`\`\`
+\`\`\`html
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' ${(t.iconStyle||"outlined")==="filled"?1:0}, 'wght' ${t.iconWeight||400}">icon_name</span>
+\`\`\`
+
+Icon-only buttons must always include \`aria-label\`.
+
+---
+
+## 9. Responsive Design
+
+### Breakpoints
+| Token | Value | Usage |
+|-------|-------|-------|
+| bp-compact | <700px | Phone, small tablet |
+| bp-regular | >=700px | Tablet, desktop |
+
+### Rules
+- Mobile first: write base styles for compact, layer up with min-width
+- Touch targets minimum 44×44px on compact
+- Navigation collapses to hamburger at bp-compact
+- Typography steps down one level on compact (e.g. type-heading-xl → type-heading-lg)
+- Never use hover-only interactions as the sole affordance — always pair with tap/click
+
+---
+
+## 10. Accessibility
+
+### Minimum Requirements
+- All color combinations must meet WCAG 2.1 AA (4.5:1 for text, 3:1 for UI elements)
+- All interactive elements must be keyboard navigable
+- Focus indicators must be visible — never \`outline: none\` without a replacement
+- All images must have \`alt\` text (empty \`alt=""\` for decorative images)
+- All icons used without text must have \`aria-label\`
+- All form inputs must have an associated \`<label>\`
+
+### ARIA Patterns
+- Modals: \`role="dialog"\`, \`aria-modal="true"\`, focus trap required
+- Tooltips: \`role="tooltip"\`, triggered via \`aria-describedby\`
+- Alerts: \`role="alert"\` for dynamic error messages
+- Loading: \`aria-busy="true"\` on the loading container
+
+---
+
+## 11. Microcopy & Tone
+
+**Voice:** ${arch.definition}
+**Reading level:** ${v.formality < 30 ? "Grade 6 — clear enough for anyone" : v.formality < 60 ? "Grade 8 — professional but accessible" : "Grade 10+ — polished and precise"}
+
+### Do
+${vs.doList.map(d=>`- ${d}`).join("\n")}
+
+### Don't
+${vs.dontList.map(d=>`- ${d}`).join("\n")}
+
+### Microcopy Patterns
+| Context | ${zone} Style |
+|---------|------|
+| Save | ${v.formality<30?"Save it!":v.formality<60?"Save changes":"Save changes"} |
+| Error | ${v.warmth>50?"Oops, something went wrong — let's try again":"Something went wrong. Please try again."} |
+| Empty state | ${v.energy>50?"Nothing here yet — let's fix that!":v.formality>60?"No items found. Create one to begin.":"Nothing here yet. Add one to get started."} |
+| Loading | ${v.verbosity<30?"Loading...":v.warmth>50?"Hang tight, loading your stuff...":"Loading, please wait..."} |
+| Delete confirm | ${v.formality>60?"This action cannot be undone. Proceed?":"Delete this? You can't undo it."} |
+
+---
+
+## 12. AI-Specific Instructions
+
+When generating UI for this project:
+1. **Read this whole document first.** Don't generate until you understand the system.
+2. **Never hard-code values.** Every color, size, and spacing must reference a token from the accompanying token file.
+3. **Ask before inventing.** If a pattern isn't defined here, say so before creating something new.
+4. **Flag gaps.** If the spec is missing something you needed, note it at the end of your output.
+5. **Output token-aware code.** Use CSS custom properties matching the token names in the token file.
+6. **Think in components, not pages.** Build composable pieces, not one-off layouts.
+7. **Always include all states.** Never ship a component without hover, focus, disabled, and error states.
+8. **Match the ${zone} voice.** ${vs.personality} Apply this tone to ALL user-facing copy.
+9. **Test against WCAG AA.** Run contrast checks on all text/background combinations.
+10. **Include \`prefers-reduced-motion\` and \`prefers-color-scheme\` media queries** in every component with motion or themed styles.
+
+This document is the source of truth. Pair it with the JSON or CSS token file for all resolved values.`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1966,6 +2872,21 @@ function LandingPreview({ t, w = 1024 }) {
           </div>
         </div>
 
+        {/* ─── HOW IT WORKS ─── */}
+        <div style={{textAlign:"center",marginBottom:sp.xl}}>
+          <div style={{fontSize:ts.xs,fontWeight:700,textTransform:"uppercase",letterSpacing:1.5,color:t.accentColor,marginBottom:sp["2xs"]}}>How it works</div>
+          <div style={{fontSize:ts.lg,fontWeight:700,fontFamily:headFF,marginBottom:sp.md}}>Three simple steps</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(min(120px, 100%), 1fr))",gap:sp.sm}}>
+            {[{n:"1",icon:"tune",t:"Configure",d:"Pick your colors, fonts, and voice."},{n:"2",icon:"download",t:"Export",d:"Generate your complete design spec."},{n:"3",icon:"rocket_launch",t:"Launch",d:"Drop it in your project and build."}].map((s,i)=>(
+              <div key={i} style={{background:t.surfaceColor,border:bdr,borderRadius:rad.md,padding:sp.sm,boxShadow:sh}}>
+                <div style={{width:28,height:28,borderRadius:rad.sm,background:alpha(t.accentColor,0.12),color:t.accentColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:ts.sm,fontWeight:700,margin:`0 auto ${sp.xs}px`}}>{s.n}</div>
+                <div style={{fontWeight:600,fontSize:ts.sm,fontFamily:headFF,marginBottom:sp["3xs"]}}>{s.t}</div>
+                <div style={{fontSize:ts.xs,color:t.mutedColor,lineHeight:1.5}}>{s.d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* ─── FEATURES GRID ─── */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(min(160px, 100%), 1fr))",gap:sp.sm,marginBottom:sp.xl}}>
           {vc.features.map((f,i)=>(
@@ -2088,60 +3009,53 @@ function DashPreview({ t, w = 1024 }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const mob = w < 700;
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [mobSidebarOpen, setMobSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarIcons = ["home","directions_run","flag","settings"];
   const chartData = [65,42,78,55,90,72,48];
   const chartDays = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   const chartMax = Math.max(...chartData);
 
   return (
-    <div style={{fontSize:ts.base,color:t.textColor,fontFamily:bodyFF,background:t.backgroundColor,minHeight:"100vh",display:"flex"}}>
+    <div style={{fontSize:ts.base,color:t.textColor,fontFamily:bodyFF,background:t.backgroundColor,minHeight:"100vh",position:"relative"}}>
 
-      {/* ─── SIDEBAR (desktop: inline, mobile: overlay) ─── */}
-      {mob&&mobSidebarOpen&&(
-        <div onClick={()=>setMobSidebarOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:19}}/>
+      {/* ─── SIDEBAR (always overlay, all sizes) ─── */}
+      {sidebarOpen&&(
+        <div onClick={()=>setSidebarOpen(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.4)",zIndex:19}}/>
       )}
-      {(mob?mobSidebarOpen:true)&&(
-        <div style={{
-          ...(mob?{position:"fixed",left:0,top:0,height:"100%",zIndex:20,boxShadow:"4px 0 24px rgba(0,0,0,0.2)"}:{}),
-          width:mob?220:(sidebarCollapsed?56:180),minWidth:mob?220:(sidebarCollapsed?56:180),
-          background:t.surfaceColor,borderRight:bdr,display:"flex",flexDirection:"column",
-          padding:`${sp.sm}px ${sp.xs}px`,gap:sp["2xs"],transition:m.md,overflow:"hidden",flexShrink:0
-        }}>
-          <div style={{display:"flex",alignItems:"center",gap:sp.xs,padding:`${sp.xs}px ${sp["2xs"]}px`,marginBottom:sp.xs,cursor:"pointer"}} onClick={()=>mob?setMobSidebarOpen(false):setSidebarCollapsed(!sidebarCollapsed)}>
-            <div style={{width:28,height:28,borderRadius:rad.sm,background:t.accentColor,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><MIcon name={mob?"close":"dashboard"} size={14} color="#fff" t={t}/></div>
-            {(mob||!sidebarCollapsed)&&<span style={{fontWeight:700,fontSize:ts.sm,fontFamily:headFF,whiteSpace:"nowrap"}}>Dashboard</span>}
+      {sidebarOpen&&(
+        <div style={{position:"absolute",left:0,top:0,bottom:0,zIndex:20,boxShadow:"4px 0 24px rgba(0,0,0,0.2)",width:mob?220:240,background:t.surfaceColor,borderRight:bdr,display:"flex",flexDirection:"column",padding:`${sp.sm}px ${sp.xs}px`,gap:sp["2xs"],overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",gap:sp.xs,padding:`${sp.xs}px ${sp["2xs"]}px`,marginBottom:sp.xs,cursor:"pointer"}} onClick={()=>setSidebarOpen(false)}>
+            <div style={{width:28,height:28,borderRadius:rad.sm,background:t.accentColor,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><MIcon name="close" size={14} color="#fff" t={t}/></div>
+            <span style={{fontWeight:700,fontSize:ts.sm,fontFamily:headFF,whiteSpace:"nowrap"}}>Dashboard</span>
           </div>
           {vc.sidebarLinks.map((link,i)=>(
             <Hoverable key={i} mt={m.sm} style={{display:"flex",alignItems:"center",gap:sp.xs,padding:`${sp["2xs"]}px ${sp["2xs"]}px`,borderRadius:rad.sm,cursor:"pointer",background:i===0?alpha(t.accentColor,0.1):"transparent",color:i===0?t.accentColor:t.mutedColor,fontSize:ts.sm,whiteSpace:"nowrap"}} hoverStyle={{background:alpha(t.accentColor,0.06)}}>
               <MIcon name={sidebarIcons[i]} size={18} color={i===0?t.accentColor:t.mutedColor} t={t} style={{flexShrink:0}}/>
-              {(mob||!sidebarCollapsed)&&<span>{link}</span>}
+              <span>{link}</span>
             </Hoverable>
           ))}
           <div style={{flex:1}}/>
           <div style={{display:"flex",alignItems:"center",gap:sp.xs,padding:`${sp.xs}px ${sp["2xs"]}px`,borderTop:bdr,paddingTop:sp.sm}}>
             <Avatar name={vc.sidebarUser} size={28} t={t} rad={rad}/>
-            {(mob||!sidebarCollapsed)&&<div style={{overflow:"hidden"}}>
+            <div style={{overflow:"hidden"}}>
               <div style={{fontSize:ts.xs,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{vc.sidebarUser}</div>
               <div style={{fontSize:ts.xs,color:t.mutedColor,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{vc.sidebarRole}</div>
-            </div>}
+            </div>
           </div>
         </div>
       )}
 
+      {/* ─── TOP BAR ─── */}
+      <div style={{display:"flex",alignItems:"center",gap:sp.xs,padding:`${sp["2xs"]}px ${mob?24:sp.sm}px`,background:t.surfaceColor,borderBottom:bdr,position:"sticky",top:0,zIndex:10}}>
+        <Hoverable mt={m.micro} onClick={()=>setSidebarOpen(true)} style={{width:36,height:36,borderRadius:rad.sm,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} hoverStyle={{background:alpha(t.accentColor,0.08)}} pressStyle={m.press}>
+          <MIcon name="menu" size={20} color={t.textColor} t={t}/>
+        </Hoverable>
+        <div style={{width:24,height:24,borderRadius:rad.xs,background:t.accentColor,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><MIcon name="dashboard" size={12} color="#fff" t={t}/></div>
+        <span style={{fontWeight:700,fontSize:ts.sm,fontFamily:headFF}}>Dashboard</span>
+      </div>
+
       {/* ─── MAIN CONTENT ─── */}
-      <div style={{flex:1,minWidth:0,overflow:"auto"}}>
-        {/* Mobile top bar with menu button */}
-        {mob&&(
-          <div style={{display:"flex",alignItems:"center",gap:sp.xs,padding:`${sp["2xs"]}px 24px`,background:t.surfaceColor,borderBottom:bdr,position:"sticky",top:0,zIndex:10}}>
-            <Hoverable mt={m.micro} onClick={()=>setMobSidebarOpen(true)} style={{width:36,height:36,borderRadius:rad.sm,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} hoverStyle={{background:alpha(t.accentColor,0.08)}} pressStyle={m.press}>
-              <MIcon name="menu" size={20} color={t.textColor} t={t}/>
-            </Hoverable>
-            <span style={{fontWeight:700,fontSize:ts.sm,fontFamily:headFF}}>Dashboard</span>
-          </div>
-        )}
-        <div style={{maxWidth:mob?"100%":"min(720px, 100%)",margin:mob?"0":"0 auto",padding:mob?"24px":`clamp(8px, 3vw, ${sp.lg}px)`}}>
+      <div style={{maxWidth:mob?"100%":"min(720px, 100%)",margin:mob?"0":"0 auto",padding:mob?"24px":`clamp(8px, 3vw, ${sp.lg}px)`}}>
 
         {/* Breadcrumbs */}
         <div style={{marginBottom:sp.sm}}>
@@ -2282,7 +3196,6 @@ function DashPreview({ t, w = 1024 }) {
         </div>
 
         </div>
-      </div>
     </div>
   );
 }
@@ -2583,6 +3496,95 @@ function DeviceFrame({ deviceWidth, deviceHeight, children, t, onResize }) {
    ═══════════════════════════════════════════════ */
 let _nid = 100;
 
+function LandingPage({ onEnter }) {
+  const [hovered, setHovered] = useState(null);
+  const features = [
+    {icon:"palette",title:"Visual Token System",desc:"Colors, typography, spacing, shape, elevation, and motion — all controlled through an intuitive UI. OKLCH color science, harmonic scales, and proportional radius built in."},
+    {icon:"smart_toy",title:"AI-Ready Export",desc:"One click generates a complete SYSTEM.md specification. Drop it in your project files and every AI tool — Claude, ChatGPT, Cursor, Copilot — builds UI that matches your system."},
+    {icon:"tune",title:"Vibe Matrix",desc:"Plot your brand personality on a 2D matrix. Formality, warmth, energy, humor — the export adapts tone, microcopy patterns, and do/don't guidelines to match."},
+    {icon:"devices",title:"Live Preview",desc:"Three fully-built templates — Landing, Dashboard, Marketplace — render your theme in real time. Resize the device frame to test responsive behavior instantly."},
+    {icon:"bolt",title:"Motion Presets",desc:"Smooth, Bouncy, or Sharp. Each preset defines durations, easings, and interaction patterns. The export includes the full motion specification."},
+    {icon:"download",title:"Three Export Formats",desc:"CSS custom properties for your stylesheet, JSON tokens for your codebase, and a comprehensive prompt spec for AI. Use them together for pixel-perfect results."},
+  ];
+  return (
+    <div style={{minHeight:"100vh",background:"#0A0A0F",color:"#FAFAFA",fontFamily:"'DM Sans', system-ui, sans-serif"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+      {/* Nav */}
+      <div style={{padding:"16px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",maxWidth:1200,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg, #7C5CFC, #E54F8A)",display:"flex",alignItems:"center",justifyContent:"center"}}><span className="material-symbols-outlined" style={{fontSize:18,color:"#fff"}}>palette</span></div>
+          <span style={{fontSize:16,fontWeight:700,letterSpacing:"-0.01em"}}>AI Design Kit</span>
+        </div>
+        <button onClick={onEnter} onMouseEnter={()=>setHovered("nav")} onMouseLeave={()=>setHovered(null)} style={{padding:"10px 24px",borderRadius:8,border:"none",background:hovered==="nav"?"#9175FF":"#7C5CFC",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer",transition:"background 0.2s"}}>Open Studio</button>
+      </div>
+      {/* Hero */}
+      <div style={{textAlign:"center",padding:"80px 32px 60px",maxWidth:800,margin:"0 auto"}}>
+        <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(124,92,252,0.12)",border:"1px solid rgba(124,92,252,0.25)",borderRadius:999,padding:"6px 16px",fontSize:13,fontWeight:500,color:"#A78BFA",marginBottom:24}}>
+          <span className="material-symbols-outlined" style={{fontSize:14}}>auto_awesome</span> Design system generator for AI
+        </div>
+        <h1 style={{fontSize:"clamp(36px, 6vw, 64px)",fontWeight:700,lineHeight:1.08,letterSpacing:"-0.03em",margin:"0 0 20px",fontFamily:"'DM Serif Display', Georgia, serif"}}>
+          Your design system,<br/><span style={{background:"linear-gradient(135deg, #7C5CFC, #E54F8A, #F59E0B)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>ready for AI</span>
+        </h1>
+        <p style={{fontSize:"clamp(16px, 2.5vw, 20px)",color:"#8A8A9A",lineHeight:1.6,maxWidth:560,margin:"0 auto 40px"}}>
+          Build a complete design system spec in minutes. Export it as a file that lives in your project — so every AI tool builds UI that actually matches your brand.
+        </p>
+        <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
+          <button onClick={onEnter} onMouseEnter={()=>setHovered("hero")} onMouseLeave={()=>setHovered(null)} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"14px 32px",borderRadius:10,border:"none",background:hovered==="hero"?"#9175FF":"#7C5CFC",color:"#fff",fontSize:16,fontWeight:600,cursor:"pointer",transition:"all 0.2s",boxShadow:"0 4px 24px rgba(124,92,252,0.3)",transform:hovered==="hero"?"translateY(-2px)":"none"}}>
+            Start Building <span className="material-symbols-outlined" style={{fontSize:18}}>arrow_forward</span>
+          </button>
+          <a href="https://github.com/katiefurstoss/snappy-ai-design" target="_blank" rel="noopener noreferrer" onMouseEnter={()=>setHovered("gh")} onMouseLeave={()=>setHovered(null)} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"14px 32px",borderRadius:10,border:"1px solid #2A2A3A",background:hovered==="gh"?"#1A1A2A":"transparent",color:"#FAFAFA",fontSize:16,fontWeight:600,cursor:"pointer",transition:"all 0.2s",textDecoration:"none"}}>
+            GitHub <span className="material-symbols-outlined" style={{fontSize:18}}>open_in_new</span>
+          </a>
+        </div>
+      </div>
+      {/* How it works */}
+      <div style={{maxWidth:900,margin:"0 auto",padding:"40px 32px 60px"}}>
+        <div style={{textAlign:"center",marginBottom:48}}>
+          <h2 style={{fontSize:14,fontWeight:600,textTransform:"uppercase",letterSpacing:2,color:"#7C5CFC",marginBottom:12}}>How it works</h2>
+          <p style={{fontSize:28,fontWeight:700,letterSpacing:"-0.02em",fontFamily:"'DM Serif Display', Georgia, serif"}}>Three steps to a complete design system</p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3, 1fr)",gap:24,marginBottom:20}}>
+          {[{n:"1",t:"Configure",d:"Pick colors, fonts, spacing, shape, motion, and voice. See changes live in three real templates."},{n:"2",t:"Export",d:"One click generates a SYSTEM.md — a complete spec with tokens, component rules, accessibility audits, and voice guidelines."},{n:"3",t:"Drop in project",d:"Add the file to your repo. Now Claude, ChatGPT, Cursor, and Copilot all build UI that follows your system."}].map((s,i)=>(
+            <div key={i} style={{padding:24,borderRadius:12,border:"1px solid #1E1E2E",background:"#12121A"}}>
+              <div style={{width:36,height:36,borderRadius:8,background:"rgba(124,92,252,0.12)",color:"#7C5CFC",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,marginBottom:16}}>{s.n}</div>
+              <div style={{fontSize:18,fontWeight:600,marginBottom:8}}>{s.t}</div>
+              <div style={{fontSize:14,color:"#8A8A9A",lineHeight:1.6}}>{s.d}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Features */}
+      <div style={{maxWidth:900,margin:"0 auto",padding:"20px 32px 60px"}}>
+        <div style={{textAlign:"center",marginBottom:48}}>
+          <h2 style={{fontSize:14,fontWeight:600,textTransform:"uppercase",letterSpacing:2,color:"#E54F8A",marginBottom:12}}>Features</h2>
+          <p style={{fontSize:28,fontWeight:700,letterSpacing:"-0.02em",fontFamily:"'DM Serif Display', Georgia, serif"}}>Everything your AI needs to build on-brand</p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))",gap:20}}>
+          {features.map((f,i)=>(
+            <div key={i} onMouseEnter={()=>setHovered("f"+i)} onMouseLeave={()=>setHovered(null)} style={{padding:24,borderRadius:12,border:"1px solid #1E1E2E",background:hovered===("f"+i)?"#16162A":"#12121A",transition:"background 0.2s"}}>
+              <span className="material-symbols-outlined" style={{fontSize:24,color:i%2===0?"#7C5CFC":"#E54F8A",marginBottom:12,display:"block"}}>{f.icon}</span>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:8}}>{f.title}</div>
+              <div style={{fontSize:14,color:"#8A8A9A",lineHeight:1.6}}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* CTA */}
+      <div style={{textAlign:"center",padding:"60px 32px 80px",maxWidth:600,margin:"0 auto"}}>
+        <p style={{fontSize:22,fontWeight:600,marginBottom:8,fontFamily:"'DM Serif Display', Georgia, serif"}}>Stop describing your design system in every prompt.</p>
+        <p style={{fontSize:16,color:"#8A8A9A",marginBottom:32,lineHeight:1.6}}>Generate it once, drop it in your project, and let every AI tool read it automatically.</p>
+        <button onClick={onEnter} onMouseEnter={()=>setHovered("cta")} onMouseLeave={()=>setHovered(null)} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"16px 40px",borderRadius:10,border:"none",background:hovered==="cta"?"#9175FF":"#7C5CFC",color:"#fff",fontSize:17,fontWeight:600,cursor:"pointer",transition:"all 0.2s",boxShadow:"0 4px 24px rgba(124,92,252,0.3)",transform:hovered==="cta"?"translateY(-2px)":"none"}}>
+          Open AI Design Kit <span className="material-symbols-outlined" style={{fontSize:18}}>arrow_forward</span>
+        </button>
+      </div>
+      {/* Footer */}
+      <div style={{borderTop:"1px solid #1E1E2E",padding:"24px 32px",textAlign:"center",fontSize:13,color:"#555"}}>
+        Built by Katie Furstoss + Claude
+      </div>
+    </div>
+  );
+}
+
 export default function LLMThemeBuilder() {
   const [saved, setSaved] = useState([{id:1,name:"My First Theme",theme:{...DEFAULT_THEME}}]);
   const [activeId, setActiveId] = useState(1);
@@ -2592,7 +3594,8 @@ export default function LLMThemeBuilder() {
   const [customWidth, setCustomWidth] = useState(402);
   const [customHeight, setCustomHeight] = useState(874);
   const [exportOpen, setExportOpen] = useState(false);
-  const [exportTab, setExportTab] = useState("css");
+  const [exportTab, setExportTab] = useState("modular");
+  const [tokenFmt, setTokenFmt] = useState(null);
   const [showNew, setShowNew] = useState(false);
   const [editName, setEditName] = useState(false);
   const [tmpName, setTmpName] = useState("");
@@ -2608,9 +3611,13 @@ export default function LLMThemeBuilder() {
   const [depthW, setDepthW] = useState(0);
   const colorSnap = useRef(null);
   const lastMotionRef = useRef("smooth");
+  const [godMode, setGodMode] = useState(false);
+  const [customPresets, setCustomPresets] = useState(()=>{try{return JSON.parse(localStorage.getItem("adk-custom-presets")||"{}");}catch{return{};}});
 
   const up = useCallback((k,v) => setTheme(p=>({...p,[k]:v})), []);
   useEffect(()=>{loadFont(theme.bodyFont);loadFont(theme.headingFont);loadFont(theme.monoFont);},[theme.bodyFont,theme.headingFont,theme.monoFont]);
+  useEffect(()=>{const h=e=>{if(e.ctrlKey&&e.shiftKey&&e.key==="G"){e.preventDefault();setGodMode(p=>!p);}};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[]);
+  useEffect(()=>{localStorage.setItem("adk-custom-presets",JSON.stringify(customPresets));},[customPresets]);
 
   // Mobile detection + auto-close sidebar on mobile
   useEffect(()=>{
@@ -2662,12 +3669,25 @@ export default function LLMThemeBuilder() {
   const finishRename = useCallback(()=>{if(tmpName.trim())setSaved(p=>p.map(s=>s.id===activeId?{...s,name:tmpName.trim()}:s));setEditName(false);},[activeId,tmpName]);
 
   const applyPersonality = useCallback(key=>{
-    const p = PERSONALITIES[key]; if(!p) return;
+    const p = PERSONALITIES[key] || customPresets[key]; if(!p) return;
     const {name, desc, ...themeProps} = p;
     setTheme(prev=>({...prev,...themeProps}));
     colorSnap.current=null;
     resetW();
-  },[resetW]);
+  },[resetW,customPresets]);
+
+  const savePreset = useCallback(()=>{
+    const slug = "custom-"+Date.now();
+    const name = prompt("Preset name:");
+    if(!name) return;
+    const desc = prompt("Short description:") || "";
+    const {colorModePolicy,accentColor,secondaryColor,tertiaryColor,surfaceColor,backgroundColor,textColor,mutedColor,borderColor,dangerColor,successColor,warningColor,borderRadius,scale,fontSize,typeHarmony,bodyFont,headingFont,monoFont,motionPreset,elevation,vibeX,vibeY,borderWeight,iconStyle,iconWeight} = theme;
+    setCustomPresets(prev=>({...prev,[slug]:{name,desc,colorModePolicy,accentColor,secondaryColor,tertiaryColor,surfaceColor,backgroundColor,textColor,mutedColor,borderColor,dangerColor,successColor,warningColor,borderRadius,scale,fontSize,typeHarmony,bodyFont,headingFont,monoFont:monoFont||"JetBrains Mono",motionPreset,elevation,vibeX:vibeX||50,vibeY:vibeY||50,borderWeight,iconStyle,iconWeight}}));
+  },[theme]);
+
+  const deletePreset = useCallback(key=>{
+    setCustomPresets(prev=>{const n={...prev};delete n[key];return n;});
+  },[]);
 
   const submitVibe = useCallback(async()=>{
     if(!vibe.trim()||genning) return;
@@ -2687,7 +3707,10 @@ export default function LLMThemeBuilder() {
   const sc = SCALE_PRESETS[t.scale]||SCALE_PRESETS.default;
   const sp = useMemo(()=>spacingScale(sc.base,sc.harmony),[sc]);
   const ts = useMemo(()=>typeScale(t.fontSize,t.typeHarmony||"major-third"),[t.fontSize,t.typeHarmony]);
-  const expContent = useMemo(()=>{if(exportTab==="css")return generateCSS(t);if(exportTab==="json")return generateJSON(t);return generatePrompt(t);},[t,exportTab]);
+  const expComplete = useMemo(()=>generateFullPrompt(t),[t]);
+  const expRules = useMemo(()=>generateRulesPrompt(t),[t]);
+  const expJSON = useMemo(()=>generateJSON(t),[t]);
+  const expCSS = useMemo(()=>generateCSS(t),[t]);
 
   const tabBtn = a => ({padding:"8px 14px",borderRadius:7,border:"none",cursor:"pointer",fontSize:14,fontWeight:500,background:a?c.accent:"transparent",color:a?"#fff":c.muted,display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap"});
 
@@ -2710,11 +3733,11 @@ export default function LLMThemeBuilder() {
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <button onClick={()=>setSidebar(!sidebar)} style={{width:38,height:38,borderRadius:8,border:`1px solid ${c.border}`,background:c.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{sidebar?<ChevronLeft size={16} color={c.muted}/>:<Menu size={16} color={c.muted}/>}</button>
           <div style={{width:34,height:34,borderRadius:8,background:`linear-gradient(135deg, ${c.accent}, ${c.secondary})`,display:"flex",alignItems:"center",justifyContent:"center"}}><Palette size={18} color="#fff"/></div>
-          <div><h1 style={{marginTop:0,marginBottom:0,fontSize:18,fontWeight:700}}>LLM Theme Builder</h1><p style={{marginTop:0,marginBottom:0,fontSize:13,color:c.muted}}>OKLCH | Harmonic Scale | Vibe Matrix</p></div>
+          <div><h1 style={{marginTop:0,marginBottom:0,fontSize:18,fontWeight:700}}>AI Design Kit</h1><p style={{marginTop:0,marginBottom:0,fontSize:13,color:c.muted}}>Design System Generator for AI</p></div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           {editName?(<input autoFocus value={tmpName} onChange={e=>setTmpName(e.target.value)} onBlur={finishRename} onKeyDown={e=>{if(e.key==="Enter")finishRename()}} style={{fontSize:14,fontWeight:600,color:c.text,background:c.bg,border:`1px solid ${c.accent}`,borderRadius:6,padding:"6px 12px",outline:"none",width:160}}/>):(<span onClick={startRename} style={{fontSize:14,fontWeight:600,color:c.text,cursor:"pointer",padding:"6px 12px",borderRadius:6,border:`1px dashed ${c.border}`}}>{activeName}</span>)}
-          <button onClick={()=>{const data=JSON.stringify(theme,null,2);const blob=new Blob([data],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${activeName.replace(/[^a-zA-Z0-9]/g,"-").toLowerCase()}-theme.json`;a.click();URL.revokeObjectURL(url);}} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",borderRadius:6,border:`1px solid ${c.accent}`,background:`${c.accent}22`,color:c.accent,fontSize:13,fontWeight:600,cursor:"pointer"}}><Download size={14}/> Save to Desktop</button>
+          <button onClick={()=>{const slug=activeName.replace(/[^a-zA-Z0-9]/g,"-").toLowerCase();const dl=(content,name,type)=>{const b=new Blob([content],{type});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);};dl(generateJSON(t),`${slug}-tokens.json`,"application/json");setTimeout(()=>dl(generateRulesPrompt(t),`${slug}-SYSTEM.md`,"text/markdown"),100);}} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",borderRadius:6,border:`1px solid ${c.accent}`,background:`${c.accent}22`,color:c.accent,fontSize:13,fontWeight:600,cursor:"pointer"}}><Download size={14}/> Save to Desktop</button>
           <button onClick={()=>setExportOpen(true)} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 16px",borderRadius:6,border:"none",background:c.accent,color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}><Download size={14}/> Export</button>
         </div>
       </div>
@@ -2817,12 +3840,15 @@ export default function LLMThemeBuilder() {
               <button onClick={()=>{setTheme(randomTheme());colorSnap.current=null;setWarmthW(0);setIntensityW(0);setDepthW(0);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px 14px",borderRadius:7,border:`1px solid ${c.border}`,background:c.bg,color:c.text,fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:10}}><Shuffle size={14}/> Randomize Theme</button>
 
               {/* Presets */}
-              <div style={{fontSize:12,fontWeight:600,color:c.muted,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Presets</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:12,fontWeight:600,color:c.muted,textTransform:"uppercase",letterSpacing:0.5}}>Presets</div>
+              </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
                 {Object.entries(PERSONALITIES).map(([k,p])=>(<button key={k} onClick={()=>applyPersonality(k)} style={{padding:"8px 10px",borderRadius:7,border:`1px solid ${c.border}`,background:c.bg,color:c.text,fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left"}}>
                   <div style={{fontWeight:600,color:c.accent,fontSize:12}}>{p.name}</div>
                   <div style={{fontSize:10,color:c.muted,lineHeight:1.3}}>{p.desc}</div>
                 </button>))}
+                {/* Custom presets hidden for now */}
               </div>
             </div>
 
@@ -3052,40 +4078,96 @@ export default function LLMThemeBuilder() {
       </div>
 
       {/* EXPORT MODAL */}
-      {exportOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}>
-        <div style={{background:c.surface,borderRadius:12,padding:24,width:"90%",maxWidth:680,maxHeight:"85vh",overflow:"auto",boxShadow:"0 20px 25px rgba(0,0,0,0.3)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-            <h2 style={{marginTop:0,marginBottom:0,fontSize:18,fontWeight:700}}>Export Theme</h2>
-            <button onClick={()=>setExportOpen(false)} style={{background:"none",border:"none",color:c.muted,cursor:"pointer",fontSize:20}}><X size={20}/></button>
+      {exportOpen&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}>
+        <div style={{background:c.surface,borderRadius:12,padding:24,width:"90%",maxWidth:720,maxHeight:"85vh",overflow:"auto",boxShadow:"0 20px 25px rgba(0,0,0,0.3)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+            <h2 style={{marginTop:0,marginBottom:0,fontSize:18,fontWeight:700}}>Export Design System</h2>
+            <button onClick={()=>setExportOpen(false)} style={{background:"none",border:"none",color:c.muted,cursor:"pointer",padding:4}}><X size={20}/></button>
           </div>
-          {/* Recommendation banner */}
-          <div style={{background:`${c.accent}15`,border:`1px solid ${c.accent}33`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,color:c.text,lineHeight:1.5}}>
-            <div style={{fontWeight:700,marginBottom:4,color:c.accent}}>💡 Best practice: Prompt + JSON together</div>
-            <div style={{color:c.muted}}>
-              For the most accurate implementation, give your LLM <strong style={{color:c.text}}>both</strong> the Prompt (for intent & architecture) and the JSON file (for exact values). The prompt alone may produce approximations since the LLM doesn't have access to this tool's token system.
-            </div>
-          </div>
-          <div style={{display:"flex",gap:8,marginBottom:16}}>
-            {[{id:"css",l:"CSS Vars",d:"Copy into :root"},{id:"json",l:"JSON",d:"Token file"},{id:"prompt",l:"Prompt",d:"For LLMs"}].map(t=>(
-              <button key={t.id} onClick={()=>setExportTab(t.id)} style={{...tabBtn(exportTab===t.id),flex:1,flexDirection:"column",alignItems:"center",padding:"8px 4px"}}>
-                <span>{t.l}</span>
-                <span style={{fontSize:9,opacity:0.7,marginTop:2}}>{t.d}</span>
+          {/* Two-tab bar */}
+          <div style={{display:"flex",gap:8,marginBottom:20}}>
+            {[{id:"modular",l:"Modular Kit",d:"Recommended"},{id:"complete",l:"Complete Prompt",d:"All-in-one file"}].map(tb=>(
+              <button key={tb.id} onClick={()=>setExportTab(tb.id)} style={{...tabBtn(exportTab===tb.id),flex:1,flexDirection:"column",alignItems:"center",padding:"10px 4px"}}>
+                <span>{tb.l}</span>
+                <span style={{fontSize:9,opacity:0.7,marginTop:2}}>{tb.d}</span>
               </button>
             ))}
-            <div style={{flex:"0 0 auto"}}/>
-            <CopyBtn text={expContent} c={c}/>
           </div>
-          {/* Tab description */}
-          <div style={{fontSize:11,color:c.muted,marginBottom:8,lineHeight:1.4}}>
-            {exportTab==="css"&&"Paste these CSS custom properties into your stylesheet's :root. All spacing, type, color, and motion tokens included."}
-            {exportTab==="json"&&"Save as theme.json and import in your project. Contains the complete token tree — colors, spacing, typography, shape, motion, and voice definitions."}
-            {exportTab==="prompt"&&"Feed this to an LLM alongside your JSON file for the best results. Includes the full design system architecture, proportional scaling rules, and voice guidelines."}
-          </div>
-          <pre style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:16,overflow:"auto",maxHeight:"45vh",fontSize:12,color:c.text,fontFamily:"monospace",marginTop:0,marginBottom:0,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
-            {expContent}
-          </pre>
+
+          {/* MODULAR TAB */}
+          {exportTab==="modular"&&(<>
+            <div style={{background:`${c.accent}15`,border:`1px solid ${c.accent}33`,borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:12,color:c.text,lineHeight:1.6}}>
+              <div style={{fontWeight:700,marginBottom:6,color:c.accent,fontSize:13}}>Two files — Rules + Tokens</div>
+              <div style={{color:c.muted,marginBottom:10}}>Copy the <strong style={{color:c.text}}>Design Rules</strong> file, then pick your token format. Drop both in your project — AI reads the rules and pulls values from the token file.</div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                <button onClick={()=>setTokenFmt("json")} style={{flex:1,minWidth:140,background:tokenFmt==="json"?`${c.accent}18`:c.bg,borderRadius:8,padding:"10px 14px",border:tokenFmt==="json"?`2px solid ${c.accent}`:`1px solid ${c.border}`,cursor:"pointer",textAlign:"left",transition:"all 0.15s"}}>
+                  <div style={{fontWeight:700,fontSize:12,color:tokenFmt==="json"?c.accent:c.text,marginBottom:3}}>JSON tokens</div>
+                  <div style={{fontSize:10,color:c.muted,lineHeight:1.4}}>Best for JS/TS projects. Import directly into your code, reference in build tools, or feed to AI alongside the rules.</div>
+                </button>
+                <button onClick={()=>setTokenFmt("css")} style={{flex:1,minWidth:140,background:tokenFmt==="css"?`${c.accent}18`:c.bg,borderRadius:8,padding:"10px 14px",border:tokenFmt==="css"?`2px solid ${c.accent}`:`1px solid ${c.border}`,cursor:"pointer",textAlign:"left",transition:"all 0.15s"}}>
+                  <div style={{fontWeight:700,fontSize:12,color:tokenFmt==="css"?c.accent:c.text,marginBottom:3}}>CSS custom properties</div>
+                  <div style={{fontSize:10,color:c.muted,lineHeight:1.4}}>Best for plain HTML/CSS or any framework. Paste into :root and reference with var(--token-name) anywhere.</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Block 1: Design Rules — always visible */}
+            <div style={{marginBottom:20}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:700,color:c.text,marginBottom:2}}>File 1: Design Rules <span style={{fontSize:11,fontWeight:500,color:c.muted}}>(SYSTEM.md)</span></div>
+                  <div style={{fontSize:11,color:c.muted,lineHeight:1.4}}>Voice, component specs, patterns, accessibility, responsive. References token names from the file below.</div>
+                </div>
+                <CopyBtn text={expRules} c={c}/>
+              </div>
+              <pre style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:16,overflow:"auto",maxHeight:"28vh",fontSize:11,color:c.text,fontFamily:"monospace",margin:0,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{expRules}</pre>
+            </div>
+
+            {/* Block 2: Token file — only shown after choice */}
+            {!tokenFmt&&(
+              <div style={{textAlign:"center",padding:"24px 16px",borderRadius:8,border:`1px dashed ${c.border}`,color:c.muted,fontSize:13}}>
+                Pick a token format above to see your token file
+              </div>
+            )}
+
+            {tokenFmt==="json"&&(
+              <div>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:700,color:c.text,marginBottom:2}}>File 2: JSON Tokens <span style={{fontSize:11,fontWeight:500,color:c.muted}}>(design-tokens.json)</span></div>
+                    <div style={{fontSize:11,color:c.muted,lineHeight:1.4}}>Importable token tree — colors, spacing, typography, shape, motion, and voice definitions.</div>
+                  </div>
+                  <CopyBtn text={expJSON} c={c}/>
+                </div>
+                <pre style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:16,overflow:"auto",maxHeight:"28vh",fontSize:11,color:c.text,fontFamily:"monospace",margin:0,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{expJSON}</pre>
+              </div>
+            )}
+
+            {tokenFmt==="css"&&(
+              <div>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:700,color:c.text,marginBottom:2}}>File 2: CSS Custom Properties <span style={{fontSize:11,fontWeight:500,color:c.muted}}>(tokens.css)</span></div>
+                    <div style={{fontSize:11,color:c.muted,lineHeight:1.4}}>Paste into your stylesheet's <code style={{background:c.bg,padding:"1px 4px",borderRadius:3,fontSize:10}}>:root</code> — use <code style={{background:c.bg,padding:"1px 4px",borderRadius:3,fontSize:10}}>var(--token)</code> anywhere in your CSS.</div>
+                  </div>
+                  <CopyBtn text={expCSS} c={c}/>
+                </div>
+                <pre style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:16,overflow:"auto",maxHeight:"28vh",fontSize:11,color:c.text,fontFamily:"monospace",margin:0,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{expCSS}</pre>
+              </div>
+            )}
+          </>)}
+
+          {/* COMPLETE TAB */}
+          {exportTab==="complete"&&(<>
+            <div style={{background:`${c.accent}15`,border:`1px solid ${c.accent}33`,borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:12,color:c.text,lineHeight:1.6}}>
+              <div style={{fontWeight:700,marginBottom:4,color:c.accent,fontSize:13}}>Single file — paste anywhere</div>
+              <div style={{color:c.muted}}>Everything in one prompt: design rules, voice, component specs, and all token values inlined. Paste into ChatGPT, Claude, Cursor, or any AI tool. Harder to update individual values later — for that, use the <strong style={{color:c.text}}>Modular Kit</strong> tab.</div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}><CopyBtn text={expComplete} c={c}/></div>
+            <pre style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:16,overflow:"auto",maxHeight:"45vh",fontSize:12,color:c.text,fontFamily:"monospace",margin:0,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{expComplete}</pre>
+          </>)}
         </div>
-      </div>}
+      </div>)}
     </div>
   );
 }
