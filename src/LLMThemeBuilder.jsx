@@ -1129,6 +1129,7 @@ function generateJSON(t) {
   const voice = vibeFromMatrix(t.vibeX, t.vibeY);
   const zone = getVibeZone(t.vibeX, t.vibeY);
   const archetype = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
+  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
   const baseRad = t.borderRadius;
   const radScale = {
     xs: Math.round(baseRad*0.3),
@@ -1137,7 +1138,32 @@ function generateJSON(t) {
     lg: baseRad > 30 ? Math.min(Math.round(baseRad*1.2),32) : Math.round(baseRad*1.2),
     full: 9999
   };
-  return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colors:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:spacingScale(sc.base,sc.harmony),typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,scale:typeScale(t.fontSize,sc.harmony)},shape:{baseRadius:t.borderRadius,radiusScale:radScale,elevation:t.elevation,borderWeight:{setting:t.borderWeight??1,resolvedPx:[0,1,2][t.borderWeight??1],label:["none","thin","bold"][t.borderWeight??1]}},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),archetype:archetype.definition,traits:archetype.traits},contrast:{textOnBg:+contrastRatio(t.textColor,t.backgroundColor).toFixed(2)}},null,2);
+  const isDark = relativeLuminance(t.backgroundColor) < 0.2;
+  const bw = [0,1,2][t.borderWeight??1];
+  const elev = t.elevation??1;
+  const elevShadows = ["none",elevationShadow(1,t.textColor),elevationShadow(3,t.textColor)];
+  const modePolicy = t.colorModePolicy === "both" ? "light-and-dark" : t.colorModePolicy === "dark-only" ? "dark-only" : "light-only";
+  const semanticColors = {
+    "color-bg-primary":t.backgroundColor,
+    "color-bg-surface":t.surfaceColor,
+    "color-bg-inverse":isDark?lighten(t.backgroundColor,0.85):darken(t.backgroundColor,0.85),
+    "color-bg-overlay":alpha(isDark?"#000000":"#000000",0.6),
+    "color-text-primary":t.textColor,
+    "color-text-secondary":t.mutedColor,
+    "color-text-disabled":alpha(t.mutedColor,0.5),
+    "color-text-inverse":isDark?darken(t.textColor,0.85):lighten(t.textColor,0.85),
+    "color-text-link":t.accentColor,
+    "color-border-default":t.borderColor,
+    "color-border-strong":isDark?lighten(t.borderColor,0.3):darken(t.borderColor,0.3),
+    "color-border-focus":t.accentColor,
+    "color-action-primary":t.accentColor,
+    "color-action-primary-hover":darken(t.accentColor,0.15),
+    "color-action-secondary":t.secondaryColor,
+    "color-action-destructive":t.dangerColor,
+    "color-action-success":t.successColor,
+    "color-action-warning":t.warningColor
+  };
+  return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colorMode:{policy:modePolicy,isDark,currentMode:isDark?"dark":"light"},colors:{primitive:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},semantic:semanticColors},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:spacingScale(sc.base,sc.harmony),typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,scale:typeScale(t.fontSize,sc.harmony)},shape:{baseRadius:t.borderRadius,radiusScale:radScale,elevation:{setting:elev,label:["flat","subtle","elevated"][elev],shadow:elevShadows[elev]},borderWeight:{setting:t.borderWeight??1,resolvedPx:bw,label:["none","thin","bold"][t.borderWeight??1]}},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),personality:vs.personality,visualVoice:vs.visualVoice,avoid:vs.avoid,archetype:archetype.definition,traits:archetype.traits},contrast:{textOnBg:+contrastRatio(t.textColor,t.backgroundColor).toFixed(2),mutedOnBg:+contrastRatio(t.mutedColor,t.backgroundColor).toFixed(2),accentOnBg:+contrastRatio(t.accentColor,t.backgroundColor).toFixed(2),accentOnSurface:+contrastRatio(t.accentColor,t.surfaceColor).toFixed(2),textOnSurface:+contrastRatio(t.textColor,t.surfaceColor).toFixed(2)}},null,2);
 }
 const VOICE_STYLE = {
   Bubbly:    {personality:"Energetic. Enthusiastic. Unapologetically fun.",visualVoice:"Bright, bouncy, saturated — like a confetti cannon in UI form. Every element feels alive.",avoid:"Corporate jargon, muted palettes, stiff layouts, anything that feels like a boardroom",doList:["Use exclamation marks and emoji freely","Keep sentences short and punchy","Lead with excitement, follow with info","Make empty states feel like invitations"],dontList:["Sound corporate or measured","Use passive voice","Write paragraphs when a line will do","Hide personality behind formality"]},
@@ -1369,7 +1395,7 @@ All component borders (cards, inputs, buttons, dividers) use this weight unless 
 - Secondary: bg=transparent, border=${bw}px solid \`color-action-primary\`, text=\`color-action-primary\`
 - Ghost: bg=transparent, text=\`color-action-primary\`, no border
 - Destructive: bg=\`color-action-destructive\`, text=#fff
-- Hover: translateY(-3px) + glow shadow (if motion enabled)
+- Hover: translateY(-2px) + brightness(1.08) (if motion enabled)
 - Press: scale(0.92) squish
 - Disabled: opacity 0.5, cursor not-allowed
 - Min height: 44px, label uses type-label-lg
@@ -1411,7 +1437,7 @@ All component borders (cards, inputs, buttons, dividers) use this weight unless 
 - Shape: radius-xs (square-ish) or radius-full (circular)
 - Sizes: 20px (icon), 28px (inline), 32px (card), 40px (profile)
 - Fallback: first letter of name, bg=\`color-action-primary\`, text=#fff
-- Stack: overlapping with -8px margin, border 2px \`color-bg-primary\`, max 4 visible + "+N" counter
+- Stack: overlapping with -30% size margin (e.g. -10px at 32px), border 2px \`color-bg-primary\`, max 4 visible + "+N" counter
 
 #### Progress Bar
 - Height: 6px
@@ -1431,6 +1457,14 @@ All component borders (cards, inputs, buttons, dividers) use this weight unless 
 - Sizes: 12px (inline), 14px (button), 18px (card), 20px (nav), 28px (feature)
 - Icon-only buttons must include aria-label
 - Color inherits from parent text unless explicitly set
+
+#### Star Rating
+- Layout: inline-flex, gap 2px
+- Stars: filled (solid color), empty (alpha(\`color-muted\`, 0.3))
+- Default: 5 stars max, size 16px
+- Color: \`color-action-primary\` (or custom per context)
+- Supports half-star rendering
+- Used in: product cards, reviews, testimonials
 
 ### 6.3 Composites
 
@@ -1853,7 +1887,7 @@ Use \`--border-weight\` from the token file.
 - Secondary: bg=transparent, border=${bw}px solid \`color-action-primary\`, text=\`color-action-primary\`
 - Ghost: bg=transparent, text=\`color-action-primary\`, no border
 - Destructive: bg=\`color-action-destructive\`, text=#fff
-- Hover: translateY(-3px) + glow shadow (if motion enabled)
+- Hover: translateY(-2px) + brightness(1.08) (if motion enabled)
 - Press: scale(0.92) squish
 - Disabled: opacity 0.5, cursor not-allowed
 - Min height: 44px, label uses type-label-lg
@@ -1895,7 +1929,7 @@ Use \`--border-weight\` from the token file.
 - Shape: radius-xs (square-ish) or radius-full (circular)
 - Sizes: 20px (icon), 28px (inline), 32px (card), 40px (profile)
 - Fallback: first letter of name, bg=\`color-action-primary\`, text=#fff
-- Stack: overlapping with -8px margin, border 2px \`color-bg-primary\`, max 4 visible + "+N" counter
+- Stack: overlapping with -30% size margin (e.g. -10px at 32px), border 2px \`color-bg-primary\`, max 4 visible + "+N" counter
 
 #### Progress Bar
 - Height: 6px
@@ -1915,6 +1949,14 @@ Use \`--border-weight\` from the token file.
 - Sizes: 12px (inline), 14px (button), 18px (card), 20px (nav), 28px (feature)
 - Icon-only buttons must include aria-label
 - Color inherits from parent text unless explicitly set
+
+#### Star Rating
+- Layout: inline-flex, gap 2px
+- Stars: filled (solid color), empty (alpha(\`color-muted\`, 0.3))
+- Default: 5 stars max, size 16px
+- Color: \`color-action-primary\` (or custom per context)
+- Supports half-star rendering
+- Used in: product cards, reviews, testimonials
 
 ### 6.3 Composites
 
@@ -2321,24 +2363,30 @@ function Hoverable({ children, style, hoverStyle, pressStyle, onClick, mt, motio
 }
 
 /* Extracted reusable atom components for previews and templates */
-function Btn({ label, isPrimary, isSecondary, isDanger, isGhost, disabled, t, m, sp, ts, bodyFF, bw=1, onClick, sh }) {
+function Btn({ label, isPrimary, isSecondary, isDanger, isGhost, disabled, t, m, sp, ts, bodyFF, bw=1, onClick, sh, rad }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
-  const borderStr = bw === 0 ? "none" : `${bw}px solid ${isDanger?t.dangerColor:t.borderColor}`;
-  const baseBg = isPrimary?t.accentColor:isSecondary?t.surfaceColor:isDanger?t.dangerColor:isGhost?t.backgroundColor:t.backgroundColor;
+  const r = rad?.sm || Math.round((t.borderRadius||8)*0.5);
+  const borderPrimary = bw === 0 ? "none" : `${bw}px solid ${t.accentColor}`;
+  const borderSecondary = bw === 0 ? "none" : `${bw}px solid ${t.accentColor}`;
+  const borderDanger = bw === 0 ? "none" : `${bw}px solid ${t.dangerColor}`;
+  const borderDefault = bw === 0 ? "none" : `${bw}px solid ${t.borderColor}`;
+  const border = isPrimary ? borderPrimary : isSecondary ? borderSecondary : isDanger ? borderDanger : isGhost ? "none" : borderDefault;
+  const baseBg = isPrimary?t.accentColor:isSecondary?"transparent":isDanger?t.dangerColor:isGhost?"transparent":t.backgroundColor;
+  const baseColor = isPrimary?"#fff":isSecondary?t.accentColor:isDanger?"#fff":isGhost?t.accentColor:t.textColor;
   return (
     <button disabled={disabled} onClick={onClick}
       onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>{setHovered(false);setPressed(false);}}
       onMouseDown={()=>setPressed(true)} onMouseUp={()=>setPressed(false)}
-      style={{padding:`${sp["2xs"]}px ${sp.sm}px`,borderRadius:Math.round((t.borderRadius||8)*0.5),border:isPrimary?"none":borderStr,background:baseBg,color:isPrimary?"#fff":isDanger?"#fff":t.textColor,fontSize:ts.sm,fontWeight:600,cursor:disabled?"default":"pointer",opacity:disabled?0.6:pressed?0.75:1,transition:m.sm,fontFamily:bodyFF,boxShadow:sh||"none",filter:hovered&&!disabled?"brightness(1.1)":"none"}}>
+      style={{padding:`${sp["2xs"]}px ${sp.sm}px`,borderRadius:r,border,background:baseBg,color:baseColor,fontSize:ts.sm,fontWeight:600,cursor:disabled?"default":"pointer",opacity:disabled?0.5:1,transition:m.sm,fontFamily:bodyFF,boxShadow:sh||"none",minHeight:44,transform:pressed&&!disabled?"scale(0.92)":hovered&&!disabled?"translateY(-2px)":"none",filter:hovered&&!disabled?"brightness(1.08)":"none"}}>
       {label}
     </button>
   );
 }
 
-function Badge({ label, color, filled, onClick, m }) {
+function Badge({ label, color, filled, onClick, m, ts, sp, bw=1 }) {
   return (
-    <span onClick={onClick} style={{fontSize:12,fontWeight:600,padding:"6px 10px",borderRadius:9999,background:filled?color:"transparent",color:filled?"#fff":color,border:filled?"none":`1px solid ${color}`,cursor:"pointer",transition:m.micro}}>
+    <span onClick={onClick} style={{fontSize:ts?.xs||12,fontWeight:600,padding:`${sp?.["3xs"]||4}px ${sp?.xs||10}px`,borderRadius:9999,background:filled?alpha(color,0.15):"transparent",color,border:filled?"none":bw===0?"none":`${bw}px solid ${color}`,cursor:"pointer",transition:m.micro}}>
       {label}
     </span>
   );
@@ -2347,21 +2395,22 @@ function Badge({ label, color, filled, onClick, m }) {
 function Alert({ title, msg, color, t, sp, ts, bodyFF, onDismiss, m, rad }) {
   const r = rad ? rad.md : Math.round((t.borderRadius || 8) * 0.8);
   return (
-    <div style={{padding:sp.sm,borderRadius:r,border:`1px solid ${color}44`,background:`${color}11`,color:t.textColor,fontSize:ts.sm,fontFamily:bodyFF,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+    <div style={{padding:sp.sm,borderRadius:r,border:"none",borderLeft:`3px solid ${color}`,background:alpha(color,0.08),color:t.textColor,fontSize:ts.sm,fontFamily:bodyFF,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
       <div>
-        <div style={{fontWeight:700,color,marginBottom:4}}>{title}</div>
-        <div style={{color:t.mutedColor}}>{msg}</div>
+        <div style={{fontWeight:700,fontSize:ts.sm,color,marginBottom:4}}>{title}</div>
+        <div style={{fontSize:ts.xs,color:t.mutedColor}}>{msg}</div>
       </div>
       {onDismiss&&<button onClick={onDismiss} style={{background:"none",border:"none",color:t.mutedColor,fontSize:18,cursor:"pointer",padding:0,marginLeft:sp.sm,flexShrink:0}}>×</button>}
     </div>
   );
 }
 
-function CardShell({ children, t, sp, m, accent, tinted, expanded, onClick, rad }) {
+function CardShell({ children, t, sp, m, accent, tinted, expanded, onClick, rad, bw=1, sh }) {
   const r = rad ? rad.md : (t.borderRadius || 8);
+  const border = bw === 0 ? "none" : `${bw}px solid ${accent?t.accentColor:t.borderColor}`;
   return (
     <div onClick={onClick}
-      style={{padding:sp.md,borderRadius:r,border:`1px solid ${accent?t.accentColor:tinted?t.borderColor:t.borderColor}`,background:tinted?`${t.accentColor}11`:t.surfaceColor,cursor:"pointer",transition:m.md,...(expanded?{boxShadow:`0 10px 30px rgba(0,0,0,0.1)`}:{})}}>
+      style={{padding:sp.md,borderRadius:r,border,background:tinted?alpha(t.accentColor,0.06):t.surfaceColor,cursor:"pointer",transition:m.md,boxShadow:expanded?`0 10px 30px rgba(0,0,0,0.1)`:sh||"none"}}>
       {children}
     </div>
   );
@@ -2369,17 +2418,19 @@ function CardShell({ children, t, sp, m, accent, tinted, expanded, onClick, rad 
 
 function ToggleSwitch({ value, onChange, t, m }) {
   return (
-    <button onClick={()=>onChange(!value)}
-      style={{width:44,height:24,borderRadius:9999,border:"none",background:value?t.accentColor:t.borderColor,position:"relative",cursor:"pointer",transition:m.sm}}>
-      <div style={{position:"absolute",top:2,left:value?20:2,width:20,height:20,background:"#fff",borderRadius:"50%",transition:m.micro}}/>
+    <button role="switch" aria-checked={value} onClick={()=>onChange(!value)}
+      style={{width:48,height:28,borderRadius:9999,border:"none",background:value?t.accentColor:t.borderColor,position:"relative",cursor:"pointer",transition:m.sm}}>
+      <div style={{position:"absolute",top:3,left:value?23:3,width:22,height:22,background:"#fff",borderRadius:"50%",transition:m.micro}}/>
     </button>
   );
 }
 
-function TextInput({ placeholder, t, sp, ts, bodyFF, m, type, ...rest }) {
+function TextInput({ placeholder, t, sp, ts, bodyFF, m, type, bw=1, rad, ...rest }) {
+  const r = rad?.sm || Math.round((t.borderRadius||8)*0.5);
+  const border = bw === 0 ? "none" : `${bw}px solid ${t.borderColor}`;
   return (
     <input type={type||"text"} placeholder={placeholder}
-      style={{padding:`${sp["2xs"]}px ${sp.xs}px`,borderRadius:Math.round((t.borderRadius||8)*0.5),border:`1px solid ${t.borderColor}`,background:t.backgroundColor,color:t.textColor,fontSize:ts.sm,fontFamily:bodyFF,outline:"none",transition:m.micro}}
+      style={{padding:`${sp["2xs"]}px ${sp.sm}px`,borderRadius:r,border,background:t.backgroundColor,color:t.textColor,fontSize:ts.sm,fontFamily:bodyFF,outline:"none",transition:m.micro}}
       {...rest}/>
   );
 }
@@ -2421,7 +2472,7 @@ function AvatarStack({ names, max = 4, size = 32, t, rad, ts }) {
   );
 }
 
-function ProgressBar({ value = 50, color, t, rad, height = 8 }) {
+function ProgressBar({ value = 50, color, t, rad, height = 6 }) {
   const bg = alpha(color || t.accentColor, 0.15);
   const fill = color || t.accentColor;
   return (
@@ -2439,9 +2490,10 @@ function Skeleton({ width = "100%", height = 16, rounded, t, rad }) {
   );
 }
 
-function TabBar({ tabs, active, onChange, t, ts, sp, m }) {
+function TabBar({ tabs, active, onChange, t, ts, sp, m, bw=1 }) {
+  const borderB = bw === 0 ? "none" : `${bw}px solid ${t.borderColor}`;
   return (
-    <div style={{display:"flex",gap:sp?.sm||12,borderBottom:`1px solid ${t.borderColor}`,overflow:"auto"}}>
+    <div style={{display:"flex",gap:sp?.xs||8,borderBottom:borderB,overflow:"auto"}}>
       {tabs.map((tab, i) => (
         <button key={i} onClick={() => onChange(i)} style={{padding:`${sp?.xs||8}px ${sp?.sm||12}px`,background:"none",border:"none",borderBottom:`2px solid ${i===active?t.accentColor:"transparent"}`,color:i===active?t.accentColor:t.mutedColor,fontSize:ts?.sm||14,fontWeight:i===active?700:500,cursor:"pointer",transition:m?.micro||"all 0.1s",whiteSpace:"nowrap"}}>
           {tab}
@@ -2453,10 +2505,10 @@ function TabBar({ tabs, active, onChange, t, ts, sp, m }) {
 
 function Breadcrumbs({ items, t, ts, sp }) {
   return (
-    <div style={{display:"flex",alignItems:"center",gap:sp?.["2xs"]||6,fontSize:ts?.xs||12,flexWrap:"wrap"}}>
+    <div style={{display:"inline-flex",alignItems:"center",gap:sp?.["2xs"]||6,fontSize:ts?.sm||14,flexWrap:"wrap"}}>
       {items.map((item, i) => (
         <span key={i} style={{display:"inline-flex",alignItems:"center",gap:sp?.["2xs"]||6}}>
-          {i > 0 && <ChevronDown size={10} style={{color:t.mutedColor,transform:"rotate(-90deg)",flexShrink:0}}/>}
+          {i > 0 && <ChevronDown size={12} style={{color:t.mutedColor,transform:"rotate(-90deg)",flexShrink:0}}/>}
           <span style={{color:i===items.length-1?t.textColor:t.mutedColor,fontWeight:i===items.length-1?600:400,cursor:i<items.length-1?"pointer":"default"}}>{item}</span>
         </span>
       ))}
@@ -2678,11 +2730,11 @@ function ComponentShowcase({ t }) {
       <div>
         <h3 style={{fontSize:ts.lg,fontWeight:700,marginBottom:sp.md,fontFamily:headFF}}>Buttons</h3>
         <div style={{display:"flex",gap:sp.sm,flexWrap:"wrap",background:t.surfaceColor,padding:sp.md,borderRadius:rad.md,border:bdr,boxShadow:sh}}>
-          <Btn label={vc.buttonLabels[0]} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={shAccent}/>
-          <Btn label={vc.buttonLabels[1]} isSecondary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh}/>
-          <Btn label={vc.buttonLabels[2]} t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh}/>
-          <Btn label={vc.buttonLabels[3]} isDanger t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh}/>
-          <Btn label={vc.buttonLabels[4]} disabled t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh}/>
+          <Btn label={vc.buttonLabels[0]} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={shAccent} rad={rad}/>
+          <Btn label={vc.buttonLabels[1]} isSecondary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh} rad={rad}/>
+          <Btn label={vc.buttonLabels[2]} t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh} rad={rad}/>
+          <Btn label={vc.buttonLabels[3]} isDanger t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh} rad={rad}/>
+          <Btn label={vc.buttonLabels[4]} disabled t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} sh={sh} rad={rad}/>
         </div>
       </div>
 
@@ -2707,10 +2759,10 @@ function ComponentShowcase({ t }) {
       <div>
         <h3 style={{fontSize:ts.lg,fontWeight:700,marginBottom:sp.md,fontFamily:headFF}}>Badges & Tags</h3>
         <div style={{display:"flex",gap:sp.sm,flexWrap:"wrap",background:t.surfaceColor,padding:sp.md,borderRadius:rad.md,border:bdr,boxShadow:sh}}>
-          <Badge label="Default" color={t.accentColor} filled={badgeStyles[0]} onClick={()=>setBadgeStyles({...badgeStyles,0:!badgeStyles[0]})} m={m}/>
-          <Badge label="Success" color={t.successColor} filled={badgeStyles[1]} onClick={()=>setBadgeStyles({...badgeStyles,1:!badgeStyles[1]})} m={m}/>
-          <Badge label="Warning" color={t.warningColor} filled={badgeStyles[2]} onClick={()=>setBadgeStyles({...badgeStyles,2:!badgeStyles[2]})} m={m}/>
-          <Badge label="Danger" color={t.dangerColor} filled={badgeStyles[3]} onClick={()=>setBadgeStyles({...badgeStyles,3:!badgeStyles[3]})} m={m}/>
+          <Badge label="Default" color={t.accentColor} filled={badgeStyles[0]} onClick={()=>setBadgeStyles({...badgeStyles,0:!badgeStyles[0]})} m={m} ts={ts} sp={sp} bw={bw}/>
+          <Badge label="Success" color={t.successColor} filled={badgeStyles[1]} onClick={()=>setBadgeStyles({...badgeStyles,1:!badgeStyles[1]})} m={m} ts={ts} sp={sp} bw={bw}/>
+          <Badge label="Warning" color={t.warningColor} filled={badgeStyles[2]} onClick={()=>setBadgeStyles({...badgeStyles,2:!badgeStyles[2]})} m={m} ts={ts} sp={sp} bw={bw}/>
+          <Badge label="Danger" color={t.dangerColor} filled={badgeStyles[3]} onClick={()=>setBadgeStyles({...badgeStyles,3:!badgeStyles[3]})} m={m} ts={ts} sp={sp} bw={bw}/>
         </div>
       </div>
 
@@ -2775,7 +2827,7 @@ function ComponentShowcase({ t }) {
               {[{n:"Entry 1",s:"Done",a:"$1,234"},{n:"Entry 2",s:"Active",a:"$5,678"},{n:"Entry 3",s:"Pending",a:"$910"}].map((row,i)=>(
                 <tr key={i} onClick={()=>setSelectedRow(selectedRow===i?null:i)} style={{borderBottom:bw===0?"none":`${bw}px solid ${t.borderColor}`,background:selectedRow===i?alpha(t.accentColor,0.08):undefined,cursor:"pointer",transition:m.sm,...(selectedRow===i?m.selected:{})}}>
                   <td style={{padding:sp.xs,color:t.textColor}}>{row.n}</td>
-                  <td style={{padding:sp.xs}}><Badge label={row.s} color={row.s==="Done"?t.successColor:row.s==="Active"?t.accentColor:t.warningColor} m={m}/></td>
+                  <td style={{padding:sp.xs}}><Badge label={row.s} color={row.s==="Done"?t.successColor:row.s==="Active"?t.accentColor:t.warningColor} m={m} ts={ts} sp={sp} bw={bw} filled/></td>
                   <td style={{padding:sp.xs,textAlign:"right",color:t.textColor}}>{row.a}</td>
                 </tr>
               ))}
@@ -2956,7 +3008,7 @@ function LandingPreview({ t, w = 1024 }) {
           <h3 style={{fontSize:ts.md,fontWeight:700,fontFamily:headFF,marginBottom:sp["2xs"]}}>{vc.newsletterHeadline}</h3>
           <div style={{display:"flex",flexDirection:mob?"column":"row",gap:sp.xs,maxWidth:360,margin:"0 auto",marginTop:sp.sm}}>
             <input type="email" placeholder={vc.newsletterPlaceholder} style={{flex:1,padding:`${sp["2xs"]}px ${sp.sm}px`,borderRadius:rad.sm,border:bdr,background:t.backgroundColor,color:t.textColor,fontSize:ts.sm,fontFamily:bodyFF,outline:"none",minWidth:0}}/>
-            <Btn label={vc.newsletterCta} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} sh={shAccent}/>
+            <Btn label={vc.newsletterCta} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} sh={shAccent} bw={bw} rad={rad}/>
           </div>
         </div>
 
@@ -3122,7 +3174,7 @@ function DashPreview({ t, w = 1024 }) {
         </div>
 
         {/* Tabs */}
-        <TabBar tabs={vc.tabLabels} active={activeTab} onChange={setActiveTab} t={t} ts={ts} sp={sp} m={m}/>
+        <TabBar tabs={vc.tabLabels} active={activeTab} onChange={setActiveTab} t={t} ts={ts} sp={sp} m={m} bw={bw}/>
 
         {/* Chart Placeholder */}
         <div style={{background:t.surfaceColor,border:bdr,borderRadius:`0 0 ${rad.md}px ${rad.md}px`,padding:sp.md,boxShadow:sh,marginBottom:sp.lg}}>
@@ -3144,7 +3196,7 @@ function DashPreview({ t, w = 1024 }) {
         <div style={{background:t.surfaceColor,border:bdr,borderRadius:rad.md,padding:sp.md,boxShadow:sh,marginBottom:sp.lg}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:sp.md}}>
             <h3 style={{fontWeight:700,fontSize:ts.md,fontFamily:headFF,margin:0}}>{vc.tableTitle}</h3>
-            <Btn label="View All" isGhost t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw}/>
+            <Btn label="View All" isGhost t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} rad={rad}/>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead>
@@ -3357,8 +3409,8 @@ function MarketPreview({ t, w = 1024 }) {
             <p style={{fontSize:ts.sm,color:t.mutedColor,lineHeight:1.6,marginBottom:sp.sm}}>{(vc.products||[])[0]?.d||"A stunning tropical specimen"}</p>
             <div style={{fontSize:ts.xl,fontWeight:800,fontFamily:headFF,marginBottom:sp.sm}}>{(vc.products||[])[0]?.p||"$49"}</div>
             <div style={{display:"flex",gap:sp.xs}}>
-              <Btn label={vc.addToCart} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} sh={shAccent}/>
-              <Btn label="Details" isGhost t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw}/>
+              <Btn label={vc.addToCart} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} sh={shAccent} bw={bw} rad={rad}/>
+              <Btn label="Details" isGhost t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} bw={bw} rad={rad}/>
             </div>
           </div>
         </div>
@@ -3399,7 +3451,7 @@ function MarketPreview({ t, w = 1024 }) {
               <span style={{fontWeight:600}}>{cartCount} item{cartCount>1?"s":""}</span>
               <span style={{fontWeight:700,fontSize:ts.md}}>$49.00</span>
             </div>
-            <Btn label={vc.checkoutCta} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} sh={shAccent}/>
+            <Btn label={vc.checkoutCta} isPrimary t={t} m={m} sp={sp} ts={ts} bodyFF={bodyFF} sh={shAccent} bw={bw} rad={rad}/>
           </div>
         ) : (
           <div style={{textAlign:"center",padding:`${sp.xl}px ${sp.md}px`,marginBottom:sp.lg}}>
