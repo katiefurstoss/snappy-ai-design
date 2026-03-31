@@ -2916,7 +2916,7 @@ function LandingPreview({ t, w = 1024 }) {
               onMouseDown={()=>setHeroPressed(1)}
               onMouseUp={()=>setHeroPressed(null)}
               onMouseLeave={()=>setHeroPressed(null)}
-              style={{display:"inline-flex",alignItems:"center",gap:6,border:bw===0?"none":`${bw}px solid ${t.secondaryColor}`,color:t.secondaryColor,padding:`${sp.xs}px ${sp.lg}px`,borderRadius:rad.sm,fontWeight:600,fontSize:ts.base,cursor:"pointer",background:"transparent",minHeight:44,...(heroPressed===1?m.press:{})}} hoverStyle={{background:alpha(t.secondaryColor,0.06)}}>{vc.ctaSecondary}</Hoverable>
+              style={{display:"inline-flex",alignItems:"center",gap:6,border:bw===0?"none":`${bw}px solid ${t.accentColor}`,color:t.accentColor,padding:`${sp.xs}px ${sp.lg}px`,borderRadius:rad.sm,fontWeight:600,fontSize:ts.base,cursor:"pointer",background:"transparent",minHeight:44,...(heroPressed===1?m.press:{})}} hoverStyle={{background:alpha(t.accentColor,0.06)}}>{vc.ctaSecondary}</Hoverable>
           </div>
 
           {/* Social Proof */}
