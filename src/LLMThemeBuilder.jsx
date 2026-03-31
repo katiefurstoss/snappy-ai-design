@@ -2911,12 +2911,12 @@ function LandingPreview({ t, w = 1024 }) {
               onMouseDown={()=>setHeroPressed(0)}
               onMouseUp={()=>setHeroPressed(null)}
               onMouseLeave={()=>setHeroPressed(null)}
-              style={{display:"inline-flex",alignItems:"center",gap:6,background:t.accentColor,color:"#fff",padding:`${sp.xs}px ${sp.lg}px`,borderRadius:rad.sm,fontWeight:600,fontSize:ts.base,cursor:"pointer",boxShadow:shAccent,minHeight:44,...(heroPressed===0?m.press:{})}} hoverStyle={m.btnHover} pressStyle={m.press}>{vc.cta} <MIcon name="arrow_forward" size={14} color="#fff" t={t}/></Hoverable>
+              style={{display:"inline-flex",alignItems:"center",gap:6,background:t.accentColor,color:"#fff",padding:`${sp.xs}px ${mob?sp.md:sp.lg}px`,borderRadius:rad.sm,fontWeight:600,fontSize:ts.base,cursor:"pointer",boxShadow:shAccent,minHeight:44,...(heroPressed===0?m.press:{})}} hoverStyle={m.btnHover} pressStyle={m.press}>{vc.cta} <MIcon name="arrow_forward" size={14} color="#fff" t={t}/></Hoverable>
             <Hoverable mt={m.md} pressStyle={m.press}
               onMouseDown={()=>setHeroPressed(1)}
               onMouseUp={()=>setHeroPressed(null)}
               onMouseLeave={()=>setHeroPressed(null)}
-              style={{display:"inline-flex",alignItems:"center",gap:6,border:bw===0?"none":`${bw}px solid ${t.accentColor}`,color:t.accentColor,padding:`${sp.xs}px ${sp.lg}px`,borderRadius:rad.sm,fontWeight:600,fontSize:ts.base,cursor:"pointer",background:"transparent",minHeight:44,...(heroPressed===1?m.press:{})}} hoverStyle={{background:alpha(t.accentColor,0.06)}}>{vc.ctaSecondary}</Hoverable>
+              style={{display:"inline-flex",alignItems:"center",gap:6,border:bw===0?"none":`${bw}px solid ${t.accentColor}`,color:t.accentColor,padding:`${sp.xs}px ${mob?sp.md:sp.lg}px`,borderRadius:rad.sm,fontWeight:600,fontSize:ts.base,cursor:"pointer",background:"transparent",minHeight:44,...(heroPressed===1?m.press:{})}} hoverStyle={{background:alpha(t.accentColor,0.06)}}>{vc.ctaSecondary}</Hoverable>
           </div>
 
           {/* Social Proof */}
