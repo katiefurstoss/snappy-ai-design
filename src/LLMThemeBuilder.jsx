@@ -1088,12 +1088,7 @@ async function generateThemeLLM(apiKey, prompt) {
    EXPORT
    ═══════════════════════════════════════════════ */
 function generateCSS(t) {
-  const sc = SCALE_PRESETS[t.scale] || SCALE_PRESETS.default;
-  const sp = spacingScale(sc.base, sc.harmony), ts = typeScale(t.fontSize, t.typeHarmony||"major-third");
-  const bf = FONTS.find(f=>f.name===t.bodyFont)?.value||"system-ui";
-  const hf = FONTS.find(f=>f.name===t.headingFont)?.value||bf;
-  const mf = FONTS.find(f=>f.name===t.monoFont)?.value||"monospace";
-  const voice = vibeFromMatrix(t.vibeX, t.vibeY);
+  const { sp, ts, bodyFF, headFF, monoFF, rad, bw, sh, elevShadows, mot, zone, archetype, voice } = computeTokens(t);
   return `/* Material 3 Design System + WCAG 2.1 AA Baseline */
 :root {
   --color-accent: ${t.accentColor}; --color-secondary: ${t.secondaryColor}; --color-tertiary: ${t.tertiaryColor};
@@ -1107,63 +1102,26 @@ function generateCSS(t) {
   --text-md: ${ts.md}px; --text-lg: ${ts.lg}px; --text-xl: ${ts.xl}px;
   --text-2xl: ${ts["2xl"]}px; --text-display: ${ts.display}px;
   --radius: ${t.borderRadius}px;
-  --font-body: ${bf}; --font-heading: ${hf}; --font-mono: ${mf};
-  --transition: ${MOTION_PRESETS[t.motionPreset]?.css||"none"};
-  ${Object.entries(MOTION_PRESETS[t.motionPreset]?.cssVars||{}).map(([k,v])=>`${k}: ${v};`).join("\n  ")}
-  --shadow: ${elevationShadow([0,1,3][t.elevation??1], t.textColor)};
-  --radius-xs: ${Math.round(t.borderRadius*0.3)}px;
-  --radius-sm: ${Math.round(t.borderRadius*0.5)}px;
-  --radius-md: ${t.borderRadius > 30 ? Math.min(t.borderRadius,28) : t.borderRadius}px;
-  --radius-lg: ${t.borderRadius > 30 ? Math.min(Math.round(t.borderRadius*1.2),32) : Math.round(t.borderRadius*1.2)}px;
-  --radius-full: 9999px;
-  --border-weight: ${[0,1,2][t.borderWeight??1]}px;
-  --elevation: ${["none","0 1px 2px rgba(0,0,0,0.06)","0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)"][[0,1,3][t.elevation??1]]||"none"};
+  --font-body: ${bodyFF}; --font-heading: ${headFF}; --font-mono: ${monoFF};
+  --transition: ${mot?.css||"none"};
+  ${Object.entries(mot?.cssVars||{}).map(([k,v])=>`${k}: ${v};`).join("\n  ")}
+  --shadow: ${sh};
+  --radius-xs: ${rad.xs}px;
+  --radius-sm: ${rad.sm}px;
+  --radius-md: ${rad.md}px;
+  --radius-lg: ${rad.lg}px;
+  --radius-full: ${rad.full}px;
+  --border-weight: ${bw}px;
+  --elevation: ${elevShadows[t.elevation??1]||"none"};
   /* Icons: Google Material Symbols, style: ${t.iconStyle||"outlined"}, weight: ${t.iconWeight||400} */
-  /* Voice Zone: ${getVibeZone(t.vibeX, t.vibeY)} — ${vibeLabel(t.vibeX, t.vibeY)} */
-  /* Voice Definition: ${VOICE_ARCHETYPES[getVibeZone(t.vibeX, t.vibeY)]?.definition || ""} */
+  /* Voice Zone: ${zone} — ${vibeLabel(t.vibeX, t.vibeY)} */
+  /* Voice Definition: ${archetype.definition || ""} */
 }`;
 }
 function generateJSON(t) {
-  const sc = SCALE_PRESETS[t.scale]||SCALE_PRESETS.default;
-  const mot = MOTION_PRESETS[t.motionPreset];
-  const voice = vibeFromMatrix(t.vibeX, t.vibeY);
-  const zone = getVibeZone(t.vibeX, t.vibeY);
-  const archetype = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
-  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
-  const baseRad = t.borderRadius;
-  const radScale = {
-    xs: Math.round(baseRad*0.3),
-    sm: Math.round(baseRad*0.5),
-    md: baseRad > 30 ? Math.min(baseRad,28) : baseRad,
-    lg: baseRad > 30 ? Math.min(Math.round(baseRad*1.2),32) : Math.round(baseRad*1.2),
-    full: 9999
-  };
-  const isDark = relativeLuminance(t.backgroundColor) < 0.2;
-  const bw = [0,1,2][t.borderWeight??1];
+  const { sp, ts, bodyFF, headFF, monoFF, rad, bw, elevShadows, mot, voice, zone, archetype, vs, isDark, modePolicy, semanticColors, contrastPairs } = computeTokens(t);
   const elev = t.elevation??1;
-  const elevShadows = ["none",elevationShadow(1,t.textColor),elevationShadow(3,t.textColor)];
-  const modePolicy = t.colorModePolicy === "both" ? "light-and-dark" : t.colorModePolicy === "dark-only" ? "dark-only" : "light-only";
-  const semanticColors = {
-    "color-bg-primary":t.backgroundColor,
-    "color-bg-surface":t.surfaceColor,
-    "color-bg-inverse":isDark?lighten(t.backgroundColor,0.85):darken(t.backgroundColor,0.85),
-    "color-bg-overlay":alpha(isDark?"#000000":"#000000",0.6),
-    "color-text-primary":t.textColor,
-    "color-text-secondary":t.mutedColor,
-    "color-text-disabled":alpha(t.mutedColor,0.5),
-    "color-text-inverse":isDark?darken(t.textColor,0.85):lighten(t.textColor,0.85),
-    "color-text-link":t.accentColor,
-    "color-border-default":t.borderColor,
-    "color-border-strong":isDark?lighten(t.borderColor,0.3):darken(t.borderColor,0.3),
-    "color-border-focus":t.accentColor,
-    "color-action-primary":t.accentColor,
-    "color-action-primary-hover":darken(t.accentColor,0.15),
-    "color-action-secondary":t.secondaryColor,
-    "color-action-destructive":t.dangerColor,
-    "color-action-success":t.successColor,
-    "color-action-warning":t.warningColor
-  };
-  return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colorMode:{policy:modePolicy,isDark,currentMode:isDark?"dark":"light"},colors:{primitive:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},semantic:semanticColors},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:spacingScale(sc.base,sc.harmony),typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,scale:typeScale(t.fontSize,sc.harmony)},shape:{baseRadius:t.borderRadius,radiusScale:radScale,elevation:{setting:elev,label:["flat","subtle","elevated"][elev],shadow:elevShadows[elev]},borderWeight:{setting:t.borderWeight??1,resolvedPx:bw,label:["none","thin","bold"][t.borderWeight??1]}},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),personality:vs.personality,visualVoice:vs.visualVoice,avoid:vs.avoid,archetype:archetype.definition,traits:archetype.traits},contrast:{textOnBg:+contrastRatio(t.textColor,t.backgroundColor).toFixed(2),mutedOnBg:+contrastRatio(t.mutedColor,t.backgroundColor).toFixed(2),accentOnBg:+contrastRatio(t.accentColor,t.backgroundColor).toFixed(2),accentOnSurface:+contrastRatio(t.accentColor,t.surfaceColor).toFixed(2),textOnSurface:+contrastRatio(t.textColor,t.surfaceColor).toFixed(2)}},null,2);
+  return JSON.stringify({designSystem:{name:"Material 3",baseline:"WCAG 2.1 AA",rules:"Material Design 3 component anatomy with custom token overrides"},colorMode:{policy:modePolicy,isDark,currentMode:isDark?"dark":"light"},colors:{primitive:{accent:t.accentColor,secondary:t.secondaryColor,tertiary:t.tertiaryColor,surface:t.surfaceColor,background:t.backgroundColor,text:t.textColor,muted:t.mutedColor,border:t.borderColor,danger:t.dangerColor,success:t.successColor,warning:t.warningColor},semantic:semanticColors},icons:{provider:"google-material-symbols",style:t.iconStyle||"outlined",weight:t.iconWeight||400,importUrl:"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"},spacing:sp,typography:{bodyFont:t.bodyFont,headingFont:t.headingFont,monoFont:t.monoFont,baseFontSize:t.fontSize,resolvedFonts:{body:bodyFF,heading:headFF,mono:monoFF},scale:ts},shape:{baseRadius:t.borderRadius,radiusScale:rad,elevation:{setting:elev,label:["flat","subtle","elevated"][elev],shadow:elevShadows[elev]},borderWeight:{setting:t.borderWeight??1,resolvedPx:bw,label:["none","thin","bold"][t.borderWeight??1]}},motion:{preset:t.motionPreset,definition:mot?.definition||"",durations:mot?.durations||{},easing:mot?.easing||{}},voice:{...voice,zone,vibeLabel:vibeLabel(t.vibeX,t.vibeY),personality:vs.personality,visualVoice:vs.visualVoice,avoid:vs.avoid,archetype:archetype.definition,traits:archetype.traits},contrast:contrastPairs},null,2);
 }
 const VOICE_STYLE = {
   Bubbly:    {personality:"Energetic. Enthusiastic. Unapologetically fun.",visualVoice:"Bright, bouncy, saturated — like a confetti cannon in UI form. Every element feels alive.",avoid:"Corporate jargon, muted palettes, stiff layouts, anything that feels like a boardroom",doList:["Use exclamation marks and emoji freely","Keep sentences short and punchy","Lead with excitement, follow with info","Make empty states feel like invitations"],dontList:["Sound corporate or measured","Use passive voice","Write paragraphs when a line will do","Hide personality behind formality"]},
@@ -1176,34 +1134,85 @@ const VOICE_STYLE = {
   Grounded:  {personality:"Practical. Direct. No-nonsense.",visualVoice:"Functional, structured, utilitarian — like a well-organized tool wall. Form follows function, every time.",avoid:"Decorative elements without purpose, playful copy, abstract illustrations, anything that prioritizes style over substance",doList:["State facts, not feelings","Use bullet points over paragraphs","Put the action first, explanation second","Make data and status immediately visible"],dontList:["Add personality where clarity is needed","Use metaphors when literal language works","Pad interfaces with decorative whitespace","Soften direct language unnecessarily"]},
   Corporate: {personality:"Authoritative. Structured. Precision-driven.",visualVoice:"Clean grid, strong hierarchy, systematic — like an annual report designed by someone who actually reads them.",avoid:"Emoji, slang, casual language, playful illustrations, rounded excess, anything that undermines authority",doList:["Lead with data and outcomes","Use structured layouts — tables, cards, clear sections","Reference metrics and impact in copy","Make navigation predictable and systematic"],dontList:["Use first-person plural ('we') casually","Add humor or whimsy","Break grid alignment for visual interest","Sacrifice information density for aesthetics"]},
 };
-function generateFullPrompt(t) {
-  const v = vibeFromMatrix(t.vibeX, t.vibeY);
-  const zone = getVibeZone(t.vibeX, t.vibeY);
-  const arch = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
-  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
-  const fl = v.formality < 30 ? "casual" : v.formality < 60 ? "conversational" : "formal";
-  const vb = v.verbosity < 30 ? "concise" : v.verbosity < 60 ? "balanced" : "detailed";
+
+/* ═══════════════════════════════════════════════
+   CENTRAL TOKEN COMPUTATION — Single source of truth
+   All export functions and the canvas hook call this.
+   ═══════════════════════════════════════════════ */
+function computeTokens(t) {
   const sc = SCALE_PRESETS[t.scale] || SCALE_PRESETS.default;
   const sp = spacingScale(sc.base, sc.harmony);
   const ts = typeScale(t.fontSize, t.typeHarmony || "major-third");
-  const mot = MOTION_PRESETS[t.motionPreset];
-  const bodyFF = FONTS.find(f=>f.name===t.bodyFont)?.value||"system-ui";
-  const headFF = FONTS.find(f=>f.name===t.headingFont)?.value||bodyFF;
-  const monoFF = FONTS.find(f=>f.name===t.monoFont)?.value||"monospace";
+  const bodyFF = FONTS.find(f => f.name === t.bodyFont)?.value || "system-ui, sans-serif";
+  const headFF = FONTS.find(f => f.name === t.headingFont)?.value || bodyFF;
+  const monoFF = FONTS.find(f => f.name === t.monoFont)?.value || "monospace";
   const baseRad = t.borderRadius;
-  const radXs = Math.round(baseRad*0.3);
-  const radSm = Math.round(baseRad*0.5);
-  const radMd = baseRad > 30 ? Math.min(baseRad,28) : baseRad;
-  const radLg = baseRad > 30 ? Math.min(Math.round(baseRad*1.2),32) : Math.round(baseRad*1.2);
-  const bw = [0,1,2][t.borderWeight??1];
-  const elev = t.elevation??1;
-  const elevSh = [
-    "none",
-    elevationShadow(1, t.textColor),
-    elevationShadow(3, t.textColor)
-  ];
-  const cr = (a,b) => { const r = contrastRatio(a,b); const g = wcagGrade(r); return `${r.toFixed(1)}:1 ${g.grade}`; };
+  const rad = {
+    xs: Math.round(baseRad * 0.3),
+    sm: Math.round(baseRad * 0.5),
+    md: baseRad,
+    lg: Math.round(baseRad * 1.2),
+    full: 9999,
+  };
+  if (baseRad > 30) {
+    rad.md = Math.min(baseRad, 28);
+    rad.lg = Math.min(Math.round(baseRad * 1.2), 32);
+  }
+  const bw = [0, 1, 2][t.borderWeight ?? 1];
+  const bdr = bw === 0 ? "none" : `${bw}px solid ${t.borderColor}`;
+  const bdrAccent = bw === 0 ? "none" : `${bw}px solid ${t.accentColor}`;
+  const elevMap = [0, 1, 3];
+  const elevLevel = elevMap[t.elevation ?? 1] ?? 1;
+  const sh = elevationShadow(elevLevel, t.textColor);
+  const elevShadows = ["none", elevationShadow(1, t.textColor), elevationShadow(3, t.textColor)];
+  const shAccent = elevLevel === 0 ? "none" : elevLevel === 1 ? `0 2px 8px ${alpha(t.accentColor, 0.2)}` : `0 4px 16px ${alpha(t.accentColor, 0.25)}`;
+  const voice = vibeFromMatrix(t.vibeX, t.vibeY);
+  const zone = getVibeZone(t.vibeX, t.vibeY);
+  const content = getVibeContent(voice, t.vibeX, t.vibeY);
+  const archetype = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
+  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
+  const mot = MOTION_PRESETS[t.motionPreset];
   const isDark = relativeLuminance(t.backgroundColor) < 0.2;
+  const modePolicy = t.colorModePolicy === "both" ? "light-and-dark" : t.colorModePolicy === "dark-only" ? "dark-only" : "light-only";
+  const semanticColors = {
+    "color-bg-primary": t.backgroundColor,
+    "color-bg-surface": t.surfaceColor,
+    "color-bg-inverse": isDark ? lighten(t.backgroundColor, 0.85) : darken(t.backgroundColor, 0.85),
+    "color-bg-overlay": alpha("#000000", 0.6),
+    "color-text-primary": t.textColor,
+    "color-text-secondary": t.mutedColor,
+    "color-text-disabled": alpha(t.mutedColor, 0.5),
+    "color-text-inverse": isDark ? darken(t.textColor, 0.85) : lighten(t.textColor, 0.85),
+    "color-text-link": t.accentColor,
+    "color-border-default": t.borderColor,
+    "color-border-strong": isDark ? lighten(t.borderColor, 0.3) : darken(t.borderColor, 0.3),
+    "color-border-focus": t.accentColor,
+    "color-action-primary": t.accentColor,
+    "color-action-primary-hover": darken(t.accentColor, 0.15),
+    "color-action-secondary": t.secondaryColor,
+    "color-action-destructive": t.dangerColor,
+    "color-action-success": t.successColor,
+    "color-action-warning": t.warningColor,
+  };
+  const contrastPairs = {
+    textOnBg: +contrastRatio(t.textColor, t.backgroundColor).toFixed(2),
+    mutedOnBg: +contrastRatio(t.mutedColor, t.backgroundColor).toFixed(2),
+    accentOnBg: +contrastRatio(t.accentColor, t.backgroundColor).toFixed(2),
+    accentOnSurface: +contrastRatio(t.accentColor, t.surfaceColor).toFixed(2),
+    textOnSurface: +contrastRatio(t.textColor, t.surfaceColor).toFixed(2),
+    dangerOnBg: +contrastRatio(t.dangerColor, t.backgroundColor).toFixed(2),
+    successOnBg: +contrastRatio(t.successColor, t.backgroundColor).toFixed(2),
+  };
+  const cr = (a, b) => { const r = contrastRatio(a, b); const g = wcagGrade(r); return `${r.toFixed(1)}:1 ${g.grade}`; };
+  return { sc, sp, ts, bodyFF, headFF, monoFF, rad, baseRad, bw, bdr, bdrAccent, elevLevel, elevMap, sh, elevShadows, shAccent, voice, zone, content, archetype, vs, mot, isDark, modePolicy, semanticColors, contrastPairs, cr };
+}
+
+function generateFullPrompt(t) {
+  const tk = computeTokens(t);
+  const { voice: v, zone, archetype: arch, vs, sc, sp, ts, mot, bodyFF, headFF, monoFF, rad, baseRad, bw, elevShadows, cr, isDark, semanticColors } = tk;
+  const fl = v.formality < 30 ? "casual" : v.formality < 60 ? "conversational" : "formal";
+  const vb = v.verbosity < 30 ? "concise" : v.verbosity < 60 ? "balanced" : "detailed";
+  const elev = t.elevation??1;
   const modePolicy = t.colorModePolicy === "both" ? "Light + Dark" : t.colorModePolicy === "dark-only" ? "Dark only" : "Light only";
   return `# SYSTEM.md — Design System Specification
 
@@ -1364,10 +1373,10 @@ Examples: \`color-text-primary\`, \`color-bg-surface\`, \`type-body-md\`, \`spac
 | Token | Value | Usage |
 |-------|-------|-------|
 | radius-none | 0px | Sharp elements |
-| radius-xs | ${radXs}px | Checkboxes, small icons, avatar squares |
-| radius-sm | ${radSm}px | Buttons, inputs, badges, nav items |
-| radius-md | ${radMd}px | Cards, panels, alerts, pricing tiers |
-| radius-lg | ${radLg}px | Modals, hero sections, testimonials |
+| radius-xs | ${rad.xs}px | Checkboxes, small icons, avatar squares |
+| radius-sm | ${rad.sm}px | Buttons, inputs, badges, nav items |
+| radius-md | ${rad.md}px | Cards, panels, alerts, pricing tiers |
+| radius-lg | ${rad.lg}px | Modals, hero sections, testimonials |
 | radius-full | 9999px | Pills, avatars (circular), search inputs, tags |
 
 **Rule:** Never mix radius values within one component.
@@ -1376,8 +1385,8 @@ Examples: \`color-text-primary\`, \`color-bg-surface\`, \`type-body-md\`, \`spac
 | Token | Value | Usage |
 |-------|-------|-------|
 | elevation-none | none | Default state, flat surfaces |
-| elevation-sm | ${elevSh[1]} | Hover state, subtle lift |
-| elevation-md | ${elevSh[2]} | Cards, raised surfaces, dropdowns |
+| elevation-sm | ${elevShadows[1]} | Hover state, subtle lift |
+| elevation-md | ${elevShadows[2]} | Cards, raised surfaces, dropdowns |
 
 Current setting: ${["Flat (no shadows)","Subtle (soft depth)","Raised (lifted feel)"][elev]}.${elev===0?" Default state = no elevation. Hover states use color change only, never shadow.":""}
 
@@ -1719,14 +1728,10 @@ This document is the source of truth. When the system evolves, update this file 
 }
 
 function generateRulesPrompt(t) {
-  const v = vibeFromMatrix(t.vibeX, t.vibeY);
-  const zone = getVibeZone(t.vibeX, t.vibeY);
-  const arch = VOICE_ARCHETYPES[zone] || VOICE_ARCHETYPES.Balanced;
-  const vs = VOICE_STYLE[zone] || VOICE_STYLE.Balanced;
+  const tk = computeTokens(t);
+  const { voice: v, zone, archetype: arch, vs, mot, bw } = tk;
   const fl = v.formality < 30 ? "casual" : v.formality < 60 ? "conversational" : "formal";
   const vb = v.verbosity < 30 ? "concise" : v.verbosity < 60 ? "balanced" : "detailed";
-  const mot = MOTION_PRESETS[t.motionPreset];
-  const bw = [0,1,2][t.borderWeight??1];
   const elev = t.elevation??1;
   const modePolicy = t.colorModePolicy === "both" ? "Light + Dark" : t.colorModePolicy === "dark-only" ? "Dark only" : "Light only";
   return `# SYSTEM.md — Design System Rules
@@ -2551,44 +2556,12 @@ const VIBE_ZONES = [
 
 /* useThemeTokens — computed token hook for all templates */
 function useThemeTokens(t) {
-  return useMemo(() => {
-    const sc = SCALE_PRESETS[t.scale] || SCALE_PRESETS.default;
-    const sp = spacingScale(sc.base, sc.harmony);
-    const ts = typeScale(t.fontSize, t.typeHarmony || "major-third");
-    const bodyFF = FONTS.find(f => f.name === t.bodyFont)?.value || "system-ui, sans-serif";
-    const headFF = FONTS.find(f => f.name === t.headingFont)?.value || bodyFF;
-    const monoFF = FONTS.find(f => f.name === t.monoFont)?.value || "monospace";
-    // Elevation: 0=flat, 1=subtle, 2=raised — maps to shadow levels
-    const elevMap = [0, 1, 3];
-    const elevLevel = elevMap[t.elevation ?? 1] ?? 1;
-    const sh = elevationShadow(elevLevel, t.textColor);
-    // Proportional border-radius: base value scales by element size
-    // Small (badges, inputs) get proportional. Large (cards, modals) get capped.
-    // "pill" (99) becomes proportional too — small elements fully round, large ones just very rounded
-    const baseRad = t.borderRadius;
-    const rad = {
-      xs: Math.round(baseRad * 0.3),           // tiny elements: checkboxes, color dots
-      sm: Math.round(baseRad * 0.5),           // inputs, buttons, badges
-      md: baseRad,                              // cards, alerts, containers
-      lg: Math.round(baseRad * 1.2),           // modals, hero sections
-      full: 9999,                               // pills, avatar circles
-    };
-    // Cap large-element radius so "pill" (99) doesn't make cards into ovals
-    if (baseRad > 30) {
-      rad.md = Math.min(baseRad, 28);
-      rad.lg = Math.min(Math.round(baseRad * 1.2), 32);
-    }
-    // borderWeight: 0=none, 1=thin(1px), 2=bold(2px)
-    const bw = [0, 1, 2][t.borderWeight ?? 1];
-    const bdr = bw === 0 ? "none" : `${bw}px solid ${t.borderColor}`;
-    const bdrAccent = bw === 0 ? "none" : `${bw}px solid ${t.accentColor}`;
-    // Accent-colored shadow that still respects elevation level
-    const shAccent = elevLevel === 0 ? "none" : elevLevel === 1 ? `0 2px 8px ${alpha(t.accentColor,0.2)}` : `0 4px 16px ${alpha(t.accentColor,0.25)}`;
-    const voice = vibeFromMatrix(t.vibeX, t.vibeY);
-    const zone = getVibeZone(t.vibeX, t.vibeY);
-    const content = getVibeContent(voice, t.vibeX, t.vibeY);
-    return { sc, sp, ts, bodyFF, headFF, monoFF, sh, shAccent, rad, bw, bdr, bdrAccent, voice, zone, content, elevLevel };
-  }, [t.scale, t.fontSize, t.typeHarmony, t.bodyFont, t.headingFont, t.monoFont, t.elevation, t.textColor, t.borderRadius, t.borderWeight, t.vibeX, t.vibeY]);
+  return useMemo(() => computeTokens(t),
+    [t.scale, t.fontSize, t.typeHarmony, t.bodyFont, t.headingFont, t.monoFont,
+     t.elevation, t.textColor, t.borderRadius, t.borderWeight, t.borderColor,
+     t.accentColor, t.vibeX, t.vibeY, t.motionPreset, t.backgroundColor,
+     t.surfaceColor, t.mutedColor, t.secondaryColor, t.dangerColor,
+     t.successColor, t.warningColor, t.colorModePolicy, t.iconStyle, t.iconWeight]);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3766,9 +3739,7 @@ export default function LLMThemeBuilder() {
     setTimeout(()=>setVibeFb(""),4000);
   },[vibe,apiKey,genning,resetW]);
 
-  const sc = SCALE_PRESETS[t.scale]||SCALE_PRESETS.default;
-  const sp = useMemo(()=>spacingScale(sc.base,sc.harmony),[sc]);
-  const ts = useMemo(()=>typeScale(t.fontSize,t.typeHarmony||"major-third"),[t.fontSize,t.typeHarmony]);
+  const { sc, sp, ts } = useMemo(() => computeTokens(t), [t]);
   const expComplete = useMemo(()=>generateFullPrompt(t),[t]);
   const expRules = useMemo(()=>generateRulesPrompt(t),[t]);
   const expJSON = useMemo(()=>generateJSON(t),[t]);
